@@ -3,8 +3,8 @@ package hub
 import (
 	"testing"
 
-	"github.com/GregoryDosh/game-server/hub/events"
-	"github.com/GregoryDosh/game-server/hub/game"
+	"github.com/GregoryDosh/game-server/hub/hubevents"
+	"github.com/GregoryDosh/game-server/hub/hubinterfaces"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -37,17 +37,17 @@ func (g *testGame) EndGame() error {
 	return nil
 }
 
-func (g *testGame) AddPlayer(p game.PlayerInterface) (interface{}, error) {
+func (g *testGame) AddPlayer(p hubinterfaces.PlayerInterface) (interface{}, error) {
 	g.addPlayerCalled = true
 	return nil, nil
 }
 
-func (g *testGame) RemovePlayer(p game.PlayerInterface) error {
+func (g *testGame) RemovePlayer(p hubinterfaces.PlayerInterface) error {
 	g.removePlayerCalled = true
 	return nil
 }
 
-func (g *testGame) PlayerEvent(p game.PlayerInterface, e events.PlayerEvent) error {
+func (g *testGame) PlayerEvent(p hubinterfaces.PlayerInterface, e hubevents.PlayerEvent) error {
 	g.playerEventCalled = true
 	return nil
 }
@@ -58,12 +58,12 @@ func (g *testGame) AutoStart() {
 }
 
 type testPlayer struct {
-	game.PlayerInterface
+	hubinterfaces.PlayerInterface
 	gotMessage bool
-	messages   []*events.MessageToPlayer
+	messages   []*hubevents.MessageToPlayer
 }
 
-func (p *testPlayer) MessagePlayer(msgs ...*events.MessageToPlayer) error {
+func (p *testPlayer) MessagePlayer(msgs ...*hubevents.MessageToPlayer) error {
 	if len(msgs) > 0 {
 		p.gotMessage = true
 		for _, m := range msgs {

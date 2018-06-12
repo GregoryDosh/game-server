@@ -4,8 +4,8 @@ import (
 	"errors"
 	"math/rand"
 
-	"github.com/GregoryDosh/game-server/hub/events"
-	"github.com/GregoryDosh/game-server/hub/game"
+	"github.com/GregoryDosh/game-server/hub/hubevents"
+	"github.com/GregoryDosh/game-server/hub/hubinterfaces"
 )
 
 const (
@@ -20,7 +20,7 @@ type PlayerSecretMoose struct {
 	IsMoose          bool
 	IsReady          bool
 	IsFirstPresident bool
-	LobbyPlayer      game.PlayerInterface
+	LobbyPlayer      hubinterfaces.PlayerInterface
 }
 
 // GameSecretMoose holds data necessary for a game of Secret Moose
@@ -98,7 +98,7 @@ func (g *GameSecretMoose) EndGame() error {
 }
 
 // AddPlayer will handle all of the pieces required to add a player to a Secret Moose game
-func (g *GameSecretMoose) AddPlayer(p game.PlayerInterface) (interface{}, error) {
+func (g *GameSecretMoose) AddPlayer(p hubinterfaces.PlayerInterface) (interface{}, error) {
 	if len(g.Players) >= 10 {
 		return nil, errors.New("cannot add player as game is full")
 	}
@@ -113,7 +113,7 @@ func (g *GameSecretMoose) AddPlayer(p game.PlayerInterface) (interface{}, error)
 }
 
 // RemovePlayer will handle all of the pieces required to remove a player from a Secret Moose game
-func (g *GameSecretMoose) RemovePlayer(p game.PlayerInterface) error {
+func (g *GameSecretMoose) RemovePlayer(p hubinterfaces.PlayerInterface) error {
 	if g.Status() != STATUS_CREATED {
 		return errors.New("cannot remove player after game started")
 	}
@@ -144,6 +144,6 @@ func (g *GameSecretMoose) AutoStart() {
 }
 
 // PlayerEvent will handle player events in the game
-func (g *GameSecretMoose) PlayerEvent(p game.PlayerInterface, e events.PlayerEvent) error {
+func (g *GameSecretMoose) PlayerEvent(p hubinterfaces.PlayerInterface, e hubevents.PlayerEvent) error {
 	return nil
 }

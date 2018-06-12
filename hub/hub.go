@@ -5,18 +5,18 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/GregoryDosh/game-server/hub/events"
-	"github.com/GregoryDosh/game-server/hub/game"
+	"github.com/GregoryDosh/game-server/hub/hubevents"
+	"github.com/GregoryDosh/game-server/hub/hubinterfaces"
 	log "github.com/Sirupsen/logrus"
 	uuid "github.com/satori/go.uuid"
 )
 
 type hub struct {
-	Games map[string]game.GameInterface
-	lobby map[game.PlayerInterface]bool
+	Games map[string]hubinterfaces.GameInterface
+	lobby map[hubinterfaces.PlayerInterface]bool
 }
 
-func (h *hub) AddGame(g game.GameInterface) (string, error) {
+func (h *hub) AddGame(g hubinterfaces.GameInterface) (string, error) {
 	if g == nil {
 		return "", errors.New("invalid game created")
 	}
@@ -50,7 +50,7 @@ func (h *hub) UpdateGamelist() {
 		return
 	}
 	for p := range h.lobby {
-		p.MessagePlayer(&events.MessageToPlayer{
+		p.MessagePlayer(&hubevents.MessageToPlayer{
 			Type:    "GAME_LIST",
 			Message: string(games),
 		})
@@ -61,7 +61,7 @@ func (h *hub) UpdateGamelist() {
 // New will initialize a new hub with required params and sane defaults
 func New() *hub {
 	return &hub{
-		Games: make(map[string]game.GameInterface, 0),
-		lobby: make(map[game.PlayerInterface]bool, 0),
+		Games: make(map[string]hubinterfaces.GameInterface, 0),
+		lobby: make(map[hubinterfaces.PlayerInterface]bool, 0),
 	}
 }
