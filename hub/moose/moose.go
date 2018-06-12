@@ -20,7 +20,7 @@ type PlayerSecretMoose struct {
 	IsMoose          bool
 	IsReady          bool
 	IsFirstPresident bool
-	Op               game.PlayerInterface
+	LobbyPlayer      game.PlayerInterface
 }
 
 // GameSecretMoose holds data necessary for a game of Secret Moose
@@ -103,7 +103,7 @@ func (g *GameSecretMoose) AddPlayer(p game.PlayerInterface) (interface{}, error)
 		return nil, errors.New("cannot add player as game is full")
 	}
 	sp := &PlayerSecretMoose{
-		Op: p,
+		LobbyPlayer: p,
 	}
 	if g.Status() != STATUS_CREATED {
 		return nil, errors.New("cannot add player after game started")
@@ -118,7 +118,7 @@ func (g *GameSecretMoose) RemovePlayer(p game.PlayerInterface) error {
 		return errors.New("cannot remove player after game started")
 	}
 	for i, ep := range g.Players {
-		if ep.Op == p {
+		if ep.LobbyPlayer == p {
 			g.Players = append(g.Players[:i], g.Players[i+1:]...)
 			return nil
 		}

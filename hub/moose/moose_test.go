@@ -63,7 +63,7 @@ func TestGameSecretMoose(t *testing.T) {
 			So(len(g.Players), ShouldEqual, 3)
 			switch v := p.(type) {
 			case *PlayerSecretMoose:
-				err := g.RemovePlayer(v.Op)
+				err := g.RemovePlayer(v.LobbyPlayer)
 				So(err, ShouldBeNil)
 				Convey("and removes from players", func() {
 					So(len(g.Players), ShouldEqual, 2)
