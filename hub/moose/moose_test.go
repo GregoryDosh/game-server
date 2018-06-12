@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	game "github.com/GregoryDosh/game-server/hub/game"
+	"github.com/GregoryDosh/game-server/hub/game"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	events "github.com/GregoryDosh/game-server/hub/events"
-	game "github.com/GregoryDosh/game-server/hub/game"
+	"github.com/GregoryDosh/game-server/hub/events"
+	"github.com/GregoryDosh/game-server/hub/game"
 	log "github.com/Sirupsen/logrus"
 	uuid "github.com/satori/go.uuid"
 )

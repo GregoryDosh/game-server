@@ -1,7 +1,7 @@
 package game
 
 import (
-	events "github.com/GregoryDosh/game-server/hub/events"
+	"github.com/GregoryDosh/game-server/hub/events"
 )
 
 // GameInterface holds the interface required for a Game to be served up by the server

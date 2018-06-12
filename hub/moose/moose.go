@@ -5,7 +5,7 @@ import (
 	"math/rand"
 
 	"github.com/GregoryDosh/game-server/hub/events"
-	game "github.com/GregoryDosh/game-server/hub/game"
+	"github.com/GregoryDosh/game-server/hub/game"
 )
 
 const (
