@@ -178,7 +178,7 @@ func TestGameSecretMoose(t *testing.T) {
 				g.AutoStart()
 				didShutdown <- true
 			}()
-			g.cancelAutostart <- true
+			close(g.cancelAutostart)
 			select {
 			case <-didShutdown:
 			case <-time.After(50 * time.Millisecond):
