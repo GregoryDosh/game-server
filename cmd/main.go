@@ -183,7 +183,20 @@ func websocketHandler(w http.ResponseWriter, r *http.Request, h *hub.Hub) {
 		return
 	}
 
-	h.ConnectSession(userID, ws)
+	s, err := h.ConnectSession(userID, ws)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	ws.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Number of sessions %d", s.TotalSessions())))
+
+	// go func() {
+	// 	for {
+	// 		<-time.After(125 * time.Millisecond)
+	// 		ws.WriteMessage(websocket.PingMessage, nil)
+	// 	}
+	// }()
+
 	// p := &Player{
 	// 	hub:      h,
 	// 	ws:       ws,

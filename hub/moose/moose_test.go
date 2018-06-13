@@ -212,14 +212,14 @@ func TestGameSecretMoose(t *testing.T) {
 	Convey("PlayerEvent", t, func() {
 		Convey("returns error without player", func() {
 			g := &GameSecretMoose{}
-			err := g.PlayerEvent(nil, &hi.PlayerEvent{})
+			err := g.PlayerEvent(nil, &hi.MessageFromPlayer{})
 			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "PlayerEvent require an active player")
 		})
 		Convey("returns error when player not in game", func() {
 			g := &GameSecretMoose{}
 			_, err := g.AddPlayer(&hi.LobbyPlayer{})
-			err = g.PlayerEvent(&hi.LobbyPlayer{}, &hi.PlayerEvent{})
+			err = g.PlayerEvent(&hi.LobbyPlayer{}, &hi.MessageFromPlayer{})
 			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "PlayerEvent require an active player")
 		})
@@ -228,12 +228,12 @@ func TestGameSecretMoose(t *testing.T) {
 			p1 := &hi.LobbyPlayer{}
 			smp1, err := g.AddPlayer(p1)
 			So(err, ShouldBeNil)
-			g.PlayerEvent(p1, &hi.PlayerEvent{Type: "ToggleReady"})
+			g.PlayerEvent(p1, &hi.MessageFromPlayer{Type: "ToggleReady"})
 			switch v := smp1.(type) {
 			case *PlayerSecretMoose:
 				So(v.IsReady, ShouldBeTrue)
 			}
-			g.PlayerEvent(p1, &hi.PlayerEvent{Type: "ToggleReady"})
+			g.PlayerEvent(p1, &hi.MessageFromPlayer{Type: "ToggleReady"})
 			switch v := smp1.(type) {
 			case *PlayerSecretMoose:
 				So(v.IsReady, ShouldBeFalse)

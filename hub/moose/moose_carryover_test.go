@@ -62,7 +62,7 @@ func TestSecretMooseCarryover(t *testing.T) {
 					g := &GameSecretMoose{}
 					for _, p := range randomTeam(playerPool, tp) {
 						g.AddPlayer(p)
-						g.PlayerEvent(p, &hi.PlayerEvent{Type: "ToggleReady"})
+						g.PlayerEvent(p, &hi.MessageFromPlayer{Type: "ToggleReady"})
 						playersSelect[p.Name]++
 					}
 					g.StartGame()

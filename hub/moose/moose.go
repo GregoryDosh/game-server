@@ -143,7 +143,7 @@ func (g *GameSecretMoose) AutoStart() {
 }
 
 // PlayerEvent will handle player events in the game
-func (g *GameSecretMoose) PlayerEvent(p hi.PlayerInterface, e *hi.PlayerEvent) error {
+func (g *GameSecretMoose) PlayerEvent(p hi.PlayerInterface, e *hi.MessageFromPlayer) error {
 	validPlayer := false
 	var gamePlayer *PlayerSecretMoose
 	for _, ep := range g.Players {

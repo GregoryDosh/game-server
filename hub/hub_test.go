@@ -48,7 +48,7 @@ func (g *testGame) RemovePlayer(p hi.PlayerInterface) error {
 	return nil
 }
 
-func (g *testGame) PlayerEvent(p hi.PlayerInterface, e *hi.PlayerEvent) error {
+func (g *testGame) PlayerEvent(p hi.PlayerInterface, e *hi.MessageFromPlayer) error {
 	g.playerEventCalled = true
 	return nil
 }
@@ -70,14 +70,14 @@ func TestHub(t *testing.T) {
 			autoStartChan: make(chan bool, 0),
 		}
 		p1 := &hi.LobbyPlayer{
-			Name:     "P1",
-			Messages: make(chan *hi.MessageToPlayer, 256),
+			Name:             "P1",
+			MessagesToPlayer: make(chan *hi.MessageToPlayer, 256),
 		}
 		ws1 := &websocket.Conn{}
 		ws2 := &websocket.Conn{}
 		p2 := &hi.LobbyPlayer{
-			Name:     "P2",
-			Messages: make(chan *hi.MessageToPlayer, 256),
+			Name:             "P2",
+			MessagesToPlayer: make(chan *hi.MessageToPlayer, 256),
 		}
 		Convey("AddGame", func() {
 			Convey("errors on nil game", func() {
@@ -98,7 +98,7 @@ func TestHub(t *testing.T) {
 					_, err := h.AddGame(g1)
 					So(err, ShouldBeNil)
 					select {
-					case msg := <-p1.Messages:
+					case msg := <-p1.MessagesToPlayer:
 						So(msg.Type, ShouldEqual, "GAME_LIST")
 						So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
 					case <-time.After(25 * time.Millisecond):
@@ -142,7 +142,7 @@ func TestHub(t *testing.T) {
 					err := h.RemoveGame(u2)
 					So(err, ShouldBeNil)
 					select {
-					case msg := <-p2.Messages:
+					case msg := <-p2.MessagesToPlayer:
 						So(msg.Type, ShouldEqual, "GAME_LIST")
 						So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
 						So(msg.Message, ShouldNotContainSubstring, `{"name":"OtherTest"}`)

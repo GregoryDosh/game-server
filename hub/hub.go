@@ -57,7 +57,11 @@ func (h *Hub) ConnectSession(u string, ws *websocket.Conn) (hi.PlayerInterface, 
 	if s, ok := h.lobby[u]; ok {
 		return s, s.AddSession(ws)
 	}
-	s := &hi.LobbyPlayer{}
+	s := &hi.LobbyPlayer{
+		Name:             "",
+		MessagesToPlayer: make(chan *hi.MessageToPlayer),
+		Sessions:         make([]*websocket.Conn, 0),
+	}
 	h.lobby[u] = s
 	return s, s.AddSession(ws)
 }
@@ -80,7 +84,7 @@ func (h *Hub) UpdateGameList() error {
 		return err
 	}
 	for _, p := range h.lobby {
-		err := p.MessagePlayer(&hi.MessageToPlayer{
+		err := p.MessageToPlayer(&hi.MessageToPlayer{
 			Type:    "GAME_LIST",
 			Message: string(games),
 		})
