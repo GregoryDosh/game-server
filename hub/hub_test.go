@@ -2,8 +2,10 @@ package hub
 
 import (
 	"testing"
+	"time"
 
 	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
+	"github.com/gorilla/websocket"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -56,22 +58,6 @@ func (g *testGame) AutoStart() {
 	g.autoStartChan <- true
 }
 
-type testPlayer struct {
-	hi.PlayerInterface
-	gotMessage bool
-	messages   []*hi.MessageToPlayer
-}
-
-func (p *testPlayer) MessagePlayer(msgs ...*hi.MessageToPlayer) error {
-	if len(msgs) > 0 {
-		p.gotMessage = true
-		for _, m := range msgs {
-			p.messages = append(p.messages, m)
-		}
-	}
-	return nil
-}
-
 func TestHub(t *testing.T) {
 	Convey("Hub", t, func() {
 		h := New()
@@ -83,15 +69,20 @@ func TestHub(t *testing.T) {
 			GameName:      "OtherTest",
 			autoStartChan: make(chan bool, 0),
 		}
-		p1 := &testPlayer{}
-		p2 := &testPlayer{}
-		Convey("NewHub shouldn't error", func() {
-			So(h, ShouldNotBeNil)
-		})
+		p1 := &hi.LobbyPlayer{
+			Name:     "P1",
+			Messages: make(chan *hi.MessageToPlayer, 256),
+		}
+		ws1 := &websocket.Conn{}
+		ws2 := &websocket.Conn{}
+		p2 := &hi.LobbyPlayer{
+			Name:     "P2",
+			Messages: make(chan *hi.MessageToPlayer, 256),
+		}
 		Convey("AddGame", func() {
 			Convey("errors on nil game", func() {
 				_, err := h.AddGame(nil)
-				So(err, ShouldNotBeNil)
+				So(err, ShouldBeError)
 				So(err.Error(), ShouldEqual, "invalid game created")
 			})
 			Convey("on success", func() {
@@ -106,10 +97,13 @@ func TestHub(t *testing.T) {
 					h.lobby["1234"] = p1
 					_, err := h.AddGame(g1)
 					So(err, ShouldBeNil)
-					So(p1.gotMessage, ShouldBeTrue)
-					So(len(p1.messages), ShouldEqual, 1)
-					So(p1.messages[0].Type, ShouldEqual, "GAME_LIST")
-					So(p1.messages[0].Message, ShouldContainSubstring, `{"name":"Test"}`)
+					select {
+					case msg := <-p1.Messages:
+						So(msg.Type, ShouldEqual, "GAME_LIST")
+						So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+					case <-time.After(25 * time.Millisecond):
+						So("Didn't get messages", ShouldBeTrue)
+					}
 				})
 				Convey("calls AutoStart handler", func() {
 					_, err := h.AddGame(g1)
@@ -124,12 +118,12 @@ func TestHub(t *testing.T) {
 			u2, _ := h.AddGame(g2)
 			Convey("errors on nil game", func() {
 				err := h.RemoveGame("")
-				So(err, ShouldNotBeNil)
+				So(err, ShouldBeError)
 				So(err.Error(), ShouldEqual, "UUID empty")
 			})
 			Convey("errors on missing game", func() {
 				err := h.RemoveGame("1234")
-				So(err, ShouldNotBeNil)
+				So(err, ShouldBeError)
 				So(err.Error(), ShouldEqual, "could not find game with UUID '1234'")
 			})
 			Convey("on success", func() {
@@ -147,12 +141,73 @@ func TestHub(t *testing.T) {
 					h.lobby["4321"] = p2
 					err := h.RemoveGame(u2)
 					So(err, ShouldBeNil)
-					So(p2.gotMessage, ShouldBeTrue)
-					So(len(p2.messages), ShouldEqual, 1)
-					So(p2.messages[0].Type, ShouldEqual, "GAME_LIST")
-					So(p2.messages[0].Message, ShouldContainSubstring, `{"name":"Test"}`)
-					So(p2.messages[0].Message, ShouldNotContainSubstring, `{"name":"OtherTest"}`)
+					select {
+					case msg := <-p2.Messages:
+						So(msg.Type, ShouldEqual, "GAME_LIST")
+						So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+						So(msg.Message, ShouldNotContainSubstring, `{"name":"OtherTest"}`)
+					case <-time.After(25 * time.Millisecond):
+						So("Didn't get messages", ShouldBeTrue)
+					}
 				})
+			})
+		})
+		Convey("ConnectSession", func() {
+			Convey("for an empty websocket it will error", func() {
+				p, err := h.ConnectSession("1234", nil)
+				So(p, ShouldBeNil)
+				So(err, ShouldBeError)
+				So(err.Error(), ShouldEqual, "missing websocket connection")
+			})
+			Convey("for a new/missing user should return a new PlayerInterface", func() {
+				So(len(h.lobby), ShouldEqual, 0)
+				p, err := h.ConnectSession("1234", ws1)
+				So(p, ShouldNotBeNil)
+				So(err, ShouldBeNil)
+				So(len(h.lobby), ShouldEqual, 1)
+			})
+			Convey("for an existing user should return existing PlayerInterface", func() {
+				h.lobby["1234"] = p1
+				So(len(h.lobby), ShouldEqual, 1)
+				rp, err := h.ConnectSession("1234", ws2)
+				So(err, ShouldBeNil)
+				So(rp, ShouldNotBeNil)
+				So(len(h.lobby), ShouldEqual, 1)
+				So(rp, ShouldEqual, p1)
+			})
+		})
+		Convey("DisconnectSession", func() {
+			Convey("will error if session not in connected sessions", func() {
+				err := h.DisconnectSession("1234", &websocket.Conn{})
+				So(err, ShouldBeError)
+				So(err.Error(), ShouldEqual, "player with uuid '1234' not in lobby")
+			})
+			Convey("will error if session does not have websocket", func() {
+				_, err := h.ConnectSession("1234", &websocket.Conn{})
+				So(err, ShouldBeNil)
+				err = h.DisconnectSession("1234", nil)
+				So(err, ShouldBeError)
+				So(err.Error(), ShouldEqual, "cannot disconnect nil websocket")
+			})
+			Convey("will error if websocket not in user sessions", func() {
+				_, err := h.ConnectSession("1234", &websocket.Conn{})
+				So(err, ShouldBeNil)
+				err = h.DisconnectSession("1234", &websocket.Conn{})
+				So(err, ShouldBeError)
+				So(err.Error(), ShouldEqual, "websocket not in user sessions")
+			})
+			Convey("will succesfully remove session", func() {
+				ws := &websocket.Conn{}
+				_, err := h.ConnectSession("1234", ws)
+				So(err, ShouldBeNil)
+				err = h.DisconnectSession("1234", ws)
+				So(err, ShouldBeNil)
+			})
+		})
+		Convey("UpdateGameList", func() {
+			err := h.UpdateGameList()
+			Convey("should not error", func() {
+				So(err, ShouldBeNil)
 			})
 		})
 	})

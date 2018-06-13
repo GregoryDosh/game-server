@@ -7,6 +7,7 @@ import (
 
 	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
 	log "github.com/Sirupsen/logrus"
+	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -18,6 +19,7 @@ type Hub struct {
 	lobby map[string]hi.PlayerInterface
 }
 
+// AddGame takes a GameInterface, places it in the games map with a UUID, and then calls UpdateGameList
 func (h *Hub) AddGame(g hi.GameInterface) (string, error) {
 	if g == nil {
 		return "", errors.New("invalid game created")
@@ -25,11 +27,11 @@ func (h *Hub) AddGame(g hi.GameInterface) (string, error) {
 	u := uuid.Must(uuid.NewV4()).String()
 	h.games[u] = g
 	go g.AutoStart()
-	h.UpdateGamelist()
 	log.Debugf("game '%s' created", u)
-	return u, nil
+	return u, h.UpdateGameList()
 }
 
+// RemoveGame takes a UUID string and removes it from the game map, then calls UpdateGameList.
 func (h *Hub) RemoveGame(u string) error {
 	if u == "" {
 		return errors.New("UUID empty")
@@ -41,18 +43,41 @@ func (h *Hub) RemoveGame(u string) error {
 			log.Error(err)
 		}
 		delete(h.games, u)
-		h.UpdateGamelist()
 		log.Debugf("game '%s' deleted", u)
-		return nil
+		return h.UpdateGameList()
 	}
 	return fmt.Errorf("could not find game with UUID '%s'", u)
 }
 
-func (h *Hub) UpdateGamelist() {
+// ConnectSession will take a UUID and either create a PlayerInterface and place it in the lobby, or return the existing PlayerInterface from the lobby.
+func (h *Hub) ConnectSession(u string, ws *websocket.Conn) (hi.PlayerInterface, error) {
+	if ws == nil {
+		return nil, errors.New("missing websocket connection")
+	}
+	if s, ok := h.lobby[u]; ok {
+		return s, s.AddSession(ws)
+	}
+	s := &hi.LobbyPlayer{}
+	h.lobby[u] = s
+	return s, s.AddSession(ws)
+}
+
+// DisconnectSession will take a UUID and a websocket and remove it from the lobby.  If this is the last remaining websocket it will remove the player from the lobby.
+func (h *Hub) DisconnectSession(u string, ws *websocket.Conn) error {
+	if ws == nil {
+		return errors.New("cannot disconnect nil websocket")
+	}
+	if s, ok := h.lobby[u]; ok {
+		return s.DisconnectSession(ws)
+	}
+	return fmt.Errorf("player with uuid '%s' not in lobby", u)
+}
+
+// UpdateGameList will marshall the games into JSON and send it to all players in the lobby with the Type GAME_LIST.
+func (h *Hub) UpdateGameList() error {
 	games, err := json.Marshal(h.games)
 	if err != nil {
-		log.Error(err)
-		return
+		return err
 	}
 	for _, p := range h.lobby {
 		err := p.MessagePlayer(&hi.MessageToPlayer{
@@ -60,19 +85,11 @@ func (h *Hub) UpdateGamelist() {
 			Message: string(games),
 		})
 		if err != nil {
-			log.Error(err)
+			return err
 		}
 	}
 	log.Debugf("send GAME_LIST to %d players", len(h.lobby))
-}
-
-func (h *Hub) ConnectSession(u string) hi.PlayerInterface {
-	if s, ok := h.lobby[u]; ok {
-		return s
-	}
-	s := &hi.LobbyPlayer{}
-	h.lobby[u] = s
-	return s
+	return nil
 }
 
 // New will initialize a new hub with required params and sane defaults

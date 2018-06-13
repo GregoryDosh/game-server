@@ -22,7 +22,7 @@ func TestGameSecretMoose(t *testing.T) {
 					So(g.Players[0], ShouldEqual, v)
 				})
 			default:
-				fmt.Print(fmt.Sprintf("unknown type '%T' encountered\n", v))
+				fmt.Printf("unknown type '%T' encountered\n", v)
 				t.Fail()
 			}
 		})
@@ -37,7 +37,7 @@ func TestGameSecretMoose(t *testing.T) {
 			g.StartGame()
 			p, err := g.AddPlayer(&hi.LobbyPlayer{})
 			So(p, ShouldBeNil)
-			So(err, ShouldNotBeNil)
+			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "cannot add player after game started")
 		})
 		Convey("errors when adding too many people to game", func() {
@@ -50,7 +50,7 @@ func TestGameSecretMoose(t *testing.T) {
 			}
 			p, err := g.AddPlayer(&hi.LobbyPlayer{})
 			So(p, ShouldBeNil)
-			So(err, ShouldNotBeNil)
+			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "cannot add player as game is full")
 		})
 	})
@@ -70,7 +70,7 @@ func TestGameSecretMoose(t *testing.T) {
 					So(g.Players, ShouldNotContain, v)
 				})
 			default:
-				fmt.Print(fmt.Sprintf("unknown type '%T' encountered\n", v))
+				fmt.Printf("unknown type '%T' encountered\n", v)
 				t.Fail()
 			}
 		})
@@ -85,13 +85,13 @@ func TestGameSecretMoose(t *testing.T) {
 			So(len(g.Players), ShouldEqual, 5)
 			Convey("removing unknown player", func() {
 				err := g.RemovePlayer(&hi.LobbyPlayer{})
-				So(err, ShouldNotBeNil)
+				So(err, ShouldBeError)
 				So(err.Error(), ShouldEqual, "could not remove unknown player")
 			})
 			Convey("when removing after game started", func() {
 				g.StartGame()
 				err := g.RemovePlayer(&hi.LobbyPlayer{})
-				So(err, ShouldNotBeNil)
+				So(err, ShouldBeError)
 				So(err.Error(), ShouldEqual, "cannot remove player after game started")
 			})
 		})
@@ -121,14 +121,14 @@ func TestGameSecretMoose(t *testing.T) {
 		Convey("errors with not enough players in the game", func() {
 			g := &GameSecretMoose{}
 			err := g.StartGame()
-			So(err, ShouldNotBeNil)
+			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "not enough players to start")
 		})
 		Convey("errors with too many (>10) players in the game", func() {
 			g := &GameSecretMoose{}
 			g.Players = []*PlayerSecretMoose{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
 			err := g.StartGame()
-			So(err, ShouldNotBeNil)
+			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "too many players to start")
 		})
 		Convey("errors if all players are not ready", func() {
@@ -139,7 +139,7 @@ func TestGameSecretMoose(t *testing.T) {
 			g.AddPlayer(&hi.LobbyPlayer{})
 			g.AddPlayer(&hi.LobbyPlayer{})
 			err := g.StartGame()
-			So(err, ShouldNotBeNil)
+			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "players not ready to start")
 		})
 	})
@@ -213,14 +213,14 @@ func TestGameSecretMoose(t *testing.T) {
 		Convey("returns error without player", func() {
 			g := &GameSecretMoose{}
 			err := g.PlayerEvent(nil, &hi.PlayerEvent{})
-			So(err, ShouldNotBeNil)
+			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "PlayerEvent require an active player")
 		})
 		Convey("returns error when player not in game", func() {
 			g := &GameSecretMoose{}
 			_, err := g.AddPlayer(&hi.LobbyPlayer{})
 			err = g.PlayerEvent(&hi.LobbyPlayer{}, &hi.PlayerEvent{})
-			So(err, ShouldNotBeNil)
+			So(err, ShouldBeError)
 			So(err.Error(), ShouldEqual, "PlayerEvent require an active player")
 		})
 		Convey("Type ToggleReady", func() {

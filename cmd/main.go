@@ -177,14 +177,13 @@ func websocketHandler(w http.ResponseWriter, r *http.Request, h *hub.Hub) {
 		return
 	}
 
-	h.ConnectSession(userID)
-
-	// ws, err := upgrader.Upgrade(w, r, nil)
-	_, err := upgrader.Upgrade(w, r, nil)
+	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+
+	h.ConnectSession(userID, ws)
 	// p := &Player{
 	// 	hub:      h,
 	// 	ws:       ws,

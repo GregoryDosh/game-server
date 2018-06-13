@@ -1,6 +1,11 @@
 package hi
 
-import "github.com/gorilla/websocket"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/gorilla/websocket"
+)
 
 // GameInterface holds the interface required for a Game to be served up by the server
 type GameInterface interface {
@@ -17,15 +22,66 @@ type GameInterface interface {
 // PlayerInterface defines the interface for a Player
 type PlayerInterface interface {
 	MessagePlayer(...*MessageToPlayer) error
+	MessageHandler()
+	AddSession(*websocket.Conn) error
+	DisconnectSession(*websocket.Conn) error
 }
 
-// LobbyPlayer is a generic player in the lobby
-type LobbyPlayer struct{
-	Name string
-	Sessions []*websocket.Conn
+// LobbyPlayer is a generic player in the lobby.
+type LobbyPlayer struct {
+	Name               string
+	Messages           chan *MessageToPlayer
+	Sessions           []*websocket.Conn
+	stopMessageHandler chan bool
 }
 
-func (p *LobbyPlayer) MessagePlayer(...*MessageToPlayer) error { return nil }
+// MessagePlayer will take a pointer to messages and place them on the Messages channel
+func (p *LobbyPlayer) MessagePlayer(msgs ...*MessageToPlayer) error {
+	for _, m := range msgs {
+		p.Messages <- m
+	}
+	return nil
+}
+
+// MessageHandler should be run as a separate goroutine and handle pulling messages off of the Message channel and sending it to every session a user is part of. To quit it send a message on the stopMessageHandler channel.
+func (p *LobbyPlayer) MessageHandler() {
+	if p.stopMessageHandler == nil {
+		p.stopMessageHandler = make(chan bool)
+	}
+	for {
+		select {
+		case msg := <-p.Messages:
+			fmt.Print(msg)
+		case <-p.stopMessageHandler:
+			return
+		}
+	}
+}
+
+// AddSessions will add a new websocket.Conn to the list of active sessions
+func (p *LobbyPlayer) AddSession(ws *websocket.Conn) error {
+	for _, s := range p.Sessions {
+		if s == ws {
+			return errors.New("websocket already in sessions")
+		}
+	}
+	p.Sessions = append(p.Sessions, ws)
+	return nil
+}
+
+// DisconnectSessions will remove a websocket.Conn from the list of active sessions
+func (p *LobbyPlayer) DisconnectSession(ws *websocket.Conn) error {
+	if len(p.Sessions) == 0 {
+		return errors.New("websocket not in user sessions")
+	}
+	for i, s := range p.Sessions {
+		if s == ws {
+			p.Sessions = append(p.Sessions[:i], p.Sessions[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("websocket not in user sessions")
+}
 
 // MessageToPlayer holds the type required for games to pass around as a shared type object
 type MessageToPlayer struct {
