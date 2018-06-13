@@ -4,8 +4,7 @@ import (
 	"errors"
 	"math/rand"
 
-	"github.com/GregoryDosh/game-server/hub/hubevents"
-	"github.com/GregoryDosh/game-server/hub/hubinterfaces"
+	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
 )
 
 const (
@@ -20,7 +19,7 @@ type PlayerSecretMoose struct {
 	IsMoose          bool
 	IsReady          bool
 	IsFirstPresident bool
-	LobbyPlayer      hubinterfaces.PlayerInterface
+	LobbyPlayer      hi.PlayerInterface
 }
 
 // GameSecretMoose holds data necessary for a game of Secret Moose
@@ -98,7 +97,7 @@ func (g *GameSecretMoose) EndGame() error {
 }
 
 // AddPlayer will handle all of the pieces required to add a player to a Secret Moose game
-func (g *GameSecretMoose) AddPlayer(p hubinterfaces.PlayerInterface) (interface{}, error) {
+func (g *GameSecretMoose) AddPlayer(p hi.PlayerInterface) (interface{}, error) {
 	if len(g.Players) >= 10 {
 		return nil, errors.New("cannot add player as game is full")
 	}
@@ -113,7 +112,7 @@ func (g *GameSecretMoose) AddPlayer(p hubinterfaces.PlayerInterface) (interface{
 }
 
 // RemovePlayer will handle all of the pieces required to remove a player from a Secret Moose game
-func (g *GameSecretMoose) RemovePlayer(p hubinterfaces.PlayerInterface) error {
+func (g *GameSecretMoose) RemovePlayer(p hi.PlayerInterface) error {
 	if g.Status() != STATUS_CREATED {
 		return errors.New("cannot remove player after game started")
 	}
@@ -144,6 +143,22 @@ func (g *GameSecretMoose) AutoStart() {
 }
 
 // PlayerEvent will handle player events in the game
-func (g *GameSecretMoose) PlayerEvent(p hubinterfaces.PlayerInterface, e hubevents.PlayerEvent) error {
+func (g *GameSecretMoose) PlayerEvent(p hi.PlayerInterface, e *hi.PlayerEvent) error {
+	validPlayer := false
+	var gamePlayer *PlayerSecretMoose
+	for _, ep := range g.Players {
+		if ep.LobbyPlayer == p {
+			validPlayer = true
+			gamePlayer = ep
+			break
+		}
+	}
+	if !validPlayer || p == nil {
+		return errors.New("PlayerEvent require an active player")
+	}
+	switch e.Type {
+	case "ToggleReady":
+		gamePlayer.IsReady = !gamePlayer.IsReady
+	}
 	return nil
 }

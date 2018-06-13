@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GregoryDosh/game-server/hub/hubinterfaces"
+	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -13,7 +13,7 @@ func TestGameSecretMoose(t *testing.T) {
 	Convey("AddPlayer", t, func() {
 		g := &GameSecretMoose{}
 		Convey("returns PlayerSecretMoose type on success", func() {
-			p, err := g.AddPlayer(&hubinterfaces.LobbyPlayer{})
+			p, err := g.AddPlayer(&hi.LobbyPlayer{})
 			switch v := p.(type) {
 			case *PlayerSecretMoose:
 				So(v, ShouldNotBeNil)
@@ -28,27 +28,27 @@ func TestGameSecretMoose(t *testing.T) {
 		})
 		Convey("errors when adding after game started", func() {
 			for i := 1; i <= 5; i++ {
-				p, _ := g.AddPlayer(&hubinterfaces.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
+				p, _ := g.AddPlayer(&hi.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
 				switch v := p.(type) {
 				case *PlayerSecretMoose:
 					v.IsReady = true
 				}
 			}
 			g.StartGame()
-			p, err := g.AddPlayer(&hubinterfaces.LobbyPlayer{})
+			p, err := g.AddPlayer(&hi.LobbyPlayer{})
 			So(p, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, "cannot add player after game started")
 		})
 		Convey("errors when adding too many people to game", func() {
 			for i := 1; i <= 10; i++ {
-				p, _ := g.AddPlayer(&hubinterfaces.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
+				p, _ := g.AddPlayer(&hi.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
 				switch v := p.(type) {
 				case *PlayerSecretMoose:
 					v.IsReady = true
 				}
 			}
-			p, err := g.AddPlayer(&hubinterfaces.LobbyPlayer{})
+			p, err := g.AddPlayer(&hi.LobbyPlayer{})
 			So(p, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, "cannot add player as game is full")
@@ -57,9 +57,9 @@ func TestGameSecretMoose(t *testing.T) {
 	Convey("RemovePlayer", t, func() {
 		g := &GameSecretMoose{}
 		Convey("returns no error on success", func() {
-			g.AddPlayer(&hubinterfaces.LobbyPlayer{Name: "P1"})
-			p, _ := g.AddPlayer(&hubinterfaces.LobbyPlayer{Name: "P2"})
-			g.AddPlayer(&hubinterfaces.LobbyPlayer{Name: "P3"})
+			g.AddPlayer(&hi.LobbyPlayer{Name: "P1"})
+			p, _ := g.AddPlayer(&hi.LobbyPlayer{Name: "P2"})
+			g.AddPlayer(&hi.LobbyPlayer{Name: "P3"})
 			So(len(g.Players), ShouldEqual, 3)
 			switch v := p.(type) {
 			case *PlayerSecretMoose:
@@ -76,7 +76,7 @@ func TestGameSecretMoose(t *testing.T) {
 		})
 		Convey("returns an error", func() {
 			for i := 1; i <= 5; i++ {
-				p, _ := g.AddPlayer(&hubinterfaces.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
+				p, _ := g.AddPlayer(&hi.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
 				switch v := p.(type) {
 				case *PlayerSecretMoose:
 					v.IsReady = true
@@ -84,13 +84,13 @@ func TestGameSecretMoose(t *testing.T) {
 			}
 			So(len(g.Players), ShouldEqual, 5)
 			Convey("removing unknown player", func() {
-				err := g.RemovePlayer(&hubinterfaces.LobbyPlayer{})
+				err := g.RemovePlayer(&hi.LobbyPlayer{})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "could not remove unknown player")
 			})
 			Convey("when removing after game started", func() {
 				g.StartGame()
-				err := g.RemovePlayer(&hubinterfaces.LobbyPlayer{})
+				err := g.RemovePlayer(&hi.LobbyPlayer{})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "cannot remove player after game started")
 			})
@@ -133,11 +133,11 @@ func TestGameSecretMoose(t *testing.T) {
 		})
 		Convey("errors if all players are not ready", func() {
 			g := &GameSecretMoose{}
-			g.AddPlayer(&hubinterfaces.LobbyPlayer{})
-			g.AddPlayer(&hubinterfaces.LobbyPlayer{})
-			g.AddPlayer(&hubinterfaces.LobbyPlayer{})
-			g.AddPlayer(&hubinterfaces.LobbyPlayer{})
-			g.AddPlayer(&hubinterfaces.LobbyPlayer{})
+			g.AddPlayer(&hi.LobbyPlayer{})
+			g.AddPlayer(&hi.LobbyPlayer{})
+			g.AddPlayer(&hi.LobbyPlayer{})
+			g.AddPlayer(&hi.LobbyPlayer{})
+			g.AddPlayer(&hi.LobbyPlayer{})
 			err := g.StartGame()
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, "players not ready to start")
@@ -189,7 +189,7 @@ func TestGameSecretMoose(t *testing.T) {
 		Convey("gracefully starts game when enough players and ready", func() {
 			g := &GameSecretMoose{}
 			for i := 1; i <= 5; i++ {
-				p, _ := g.AddPlayer(&hubinterfaces.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
+				p, _ := g.AddPlayer(&hi.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
 				switch v := p.(type) {
 				case *PlayerSecretMoose:
 					v.IsReady = true
@@ -209,12 +209,43 @@ func TestGameSecretMoose(t *testing.T) {
 			}
 		})
 	})
+	Convey("PlayerEvent", t, func() {
+		Convey("returns error without player", func() {
+			g := &GameSecretMoose{}
+			err := g.PlayerEvent(nil, &hi.PlayerEvent{})
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldEqual, "PlayerEvent require an active player")
+		})
+		Convey("returns error when player not in game", func() {
+			g := &GameSecretMoose{}
+			_, err := g.AddPlayer(&hi.LobbyPlayer{})
+			err = g.PlayerEvent(&hi.LobbyPlayer{}, &hi.PlayerEvent{})
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldEqual, "PlayerEvent require an active player")
+		})
+		Convey("Type ToggleReady", func() {
+			g := &GameSecretMoose{}
+			p1 := &hi.LobbyPlayer{}
+			smp1, err := g.AddPlayer(p1)
+			So(err, ShouldBeNil)
+			g.PlayerEvent(p1, &hi.PlayerEvent{Type: "ToggleReady"})
+			switch v := smp1.(type) {
+			case *PlayerSecretMoose:
+				So(v.IsReady, ShouldBeTrue)
+			}
+			g.PlayerEvent(p1, &hi.PlayerEvent{Type: "ToggleReady"})
+			switch v := smp1.(type) {
+			case *PlayerSecretMoose:
+				So(v.IsReady, ShouldBeFalse)
+			}
+		})
+	})
 	Convey("lifecycle changes throughout game", t, func() {
 		g := &GameSecretMoose{}
 		n := g.Status()
 		So(n, ShouldEqual, STATUS_CREATED)
 		for i := 1; i <= 5; i++ {
-			p, _ := g.AddPlayer(&hubinterfaces.LobbyPlayer{})
+			p, _ := g.AddPlayer(&hi.LobbyPlayer{})
 			switch v := p.(type) {
 			case *PlayerSecretMoose:
 				v.IsReady = true
@@ -232,7 +263,7 @@ func TestGameSecretMoose(t *testing.T) {
 		for maxPlayers := 5; maxPlayers <= 10; maxPlayers++ {
 			Convey(fmt.Sprintf("%d players", maxPlayers), func() {
 				for i := 1; i <= maxPlayers; i++ {
-					p, _ := g.AddPlayer(&hubinterfaces.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
+					p, _ := g.AddPlayer(&hi.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
 					switch v := p.(type) {
 					case *PlayerSecretMoose:
 						v.IsReady = true

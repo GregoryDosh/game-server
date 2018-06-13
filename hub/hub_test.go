@@ -3,8 +3,7 @@ package hub
 import (
 	"testing"
 
-	"github.com/GregoryDosh/game-server/hub/hubevents"
-	"github.com/GregoryDosh/game-server/hub/hubinterfaces"
+	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -37,17 +36,17 @@ func (g *testGame) EndGame() error {
 	return nil
 }
 
-func (g *testGame) AddPlayer(p hubinterfaces.PlayerInterface) (interface{}, error) {
+func (g *testGame) AddPlayer(p hi.PlayerInterface) (interface{}, error) {
 	g.addPlayerCalled = true
 	return nil, nil
 }
 
-func (g *testGame) RemovePlayer(p hubinterfaces.PlayerInterface) error {
+func (g *testGame) RemovePlayer(p hi.PlayerInterface) error {
 	g.removePlayerCalled = true
 	return nil
 }
 
-func (g *testGame) PlayerEvent(p hubinterfaces.PlayerInterface, e hubevents.PlayerEvent) error {
+func (g *testGame) PlayerEvent(p hi.PlayerInterface, e *hi.PlayerEvent) error {
 	g.playerEventCalled = true
 	return nil
 }
@@ -58,12 +57,12 @@ func (g *testGame) AutoStart() {
 }
 
 type testPlayer struct {
-	hubinterfaces.PlayerInterface
+	hi.PlayerInterface
 	gotMessage bool
-	messages   []*hubevents.MessageToPlayer
+	messages   []*hi.MessageToPlayer
 }
 
-func (p *testPlayer) MessagePlayer(msgs ...*hubevents.MessageToPlayer) error {
+func (p *testPlayer) MessagePlayer(msgs ...*hi.MessageToPlayer) error {
 	if len(msgs) > 0 {
 		p.gotMessage = true
 		for _, m := range msgs {
@@ -99,12 +98,12 @@ func TestHub(t *testing.T) {
 				Convey("places game in Games map and returns UUID", func() {
 					uuid, err := h.AddGame(g1)
 					So(err, ShouldBeNil)
-					So(len(h.Games), ShouldEqual, 1)
+					So(len(h.games), ShouldEqual, 1)
 					So(uuid, ShouldNotBeNil)
-					So(g1, ShouldEqual, h.Games[uuid])
+					So(g1, ShouldEqual, h.games[uuid])
 				})
 				Convey("sends a message to players in lobby with updated gamelist", func() {
-					h.lobby[p1] = true
+					h.lobby["1234"] = p1
 					_, err := h.AddGame(g1)
 					So(err, ShouldBeNil)
 					So(p1.gotMessage, ShouldBeTrue)
@@ -142,10 +141,10 @@ func TestHub(t *testing.T) {
 				Convey("removes game from Games map", func() {
 					err := h.RemoveGame(u1)
 					So(err, ShouldBeNil)
-					So(len(h.Games), ShouldEqual, 1)
+					So(len(h.games), ShouldEqual, 1)
 				})
 				Convey("sends a message to players in lobby with updated gamelist", func() {
-					h.lobby[p2] = true
+					h.lobby["4321"] = p2
 					err := h.RemoveGame(u2)
 					So(err, ShouldBeNil)
 					So(p2.gotMessage, ShouldBeTrue)
