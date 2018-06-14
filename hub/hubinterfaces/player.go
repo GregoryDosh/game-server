@@ -1,16 +1,19 @@
 package hi
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/websocket"
 )
 
 // PlayerInterface defines the interface for a Player
 type PlayerInterface interface {
 	MessageToPlayer(...*MessageToPlayer) error
-	MessageHandler()
+	MessageToPlayerHandler()
+	MessageFromPlayerAggregator()
+	MessageFromPlayerHandler(*websocket.Conn)
 	TotalSessions() int
 	AddSession(*websocket.Conn) error
 	DisconnectSession(*websocket.Conn) error
@@ -20,29 +23,73 @@ type PlayerInterface interface {
 type LobbyPlayer struct {
 	Name               string
 	MessagesToPlayer   chan *MessageToPlayer
-	Sessions           []*websocket.Conn
-	stopMessageHandler chan bool
+	MessagesFromPlayer chan []byte
+	Sessions           map[*websocket.Conn]bool
 }
 
 // MessageToPlayer will take a pointer to messages and place them on the Messages channel
 func (p *LobbyPlayer) MessageToPlayer(msgs ...*MessageToPlayer) error {
 	for _, m := range msgs {
+		if m.EventChannel == "" {
+			return errors.New("missing EventChannel on MessageToPlayer")
+		}
 		p.MessagesToPlayer <- m
 	}
 	return nil
 }
 
-// MessageHandler should be run as a separate goroutine and handle pulling messages off of the Message channel and sending it to every session a user is part of. To quit it send a message on the stopMessageHandler channel.
-func (p *LobbyPlayer) MessageHandler() {
-	if p.stopMessageHandler == nil {
-		p.stopMessageHandler = make(chan bool)
-	}
+// MessageToPlayerHandler should be run as a separate goroutine and handle pulling messages off of the Message channel and sending it to every session a user is part of.
+func (p *LobbyPlayer) MessageToPlayerHandler() {
+	log.Debugf("✅ Starting MessageToPlayerHandler for '%s'", p.Name)
+	defer log.Debugf("🛑 Stopping MessageToPlayerHandler for '%s'", p.Name)
 	for {
 		select {
-		case msg := <-p.MessagesToPlayer:
-			fmt.Print(msg)
-		case <-p.stopMessageHandler:
-			return
+		case msg, ok := <-p.MessagesToPlayer:
+			if !ok {
+				return
+			}
+			binaryMessage, _ := json.Marshal(msg)
+			log.Printf("Sending %s", binaryMessage)
+			for s := range p.Sessions {
+				s.WriteMessage(websocket.TextMessage, binaryMessage)
+			}
+		}
+	}
+}
+
+// MessageFromPlayerAggregator should be run as a separate goroutine and handle pulling messages off of the Message channel and sending it to every session a user is part of.
+func (p *LobbyPlayer) MessageFromPlayerAggregator() {
+	log.Debugf("✅ Starting MessageFromPlayerAggregator for '%s'", p.Name)
+	defer log.Debugf("🛑 Stopping MessageFromPlayerAggregator for '%s'", p.Name)
+	for {
+		select {
+		case msg, ok := <-p.MessagesFromPlayer:
+			if !ok {
+				return
+			}
+			log.Printf("Received %s", msg)
+			p.MessageToPlayer(&MessageToPlayer{
+				Type:         string(msg),
+				EventChannel: ChannelGlobal,
+			})
+		}
+	}
+}
+
+// MessageFromPlayerHandler should be run as a separate goroutine and will pool messages from connection into MessageFromPlayerAggregator.
+func (p *LobbyPlayer) MessageFromPlayerHandler(ws *websocket.Conn) {
+	log.Debugf("✅ Starting MessageFromPlayerHandler for '%s'", p.Name)
+	defer log.Debugf("🛑 Stopping MessageFromPlayerHandler for '%s'", p.Name)
+	if ws.UnderlyingConn() != nil {
+		for {
+			_, message, err := ws.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					log.Error(err)
+				}
+				break
+			}
+			p.MessagesFromPlayer <- message
 		}
 	}
 }
@@ -54,12 +101,12 @@ func (p *LobbyPlayer) TotalSessions() int {
 
 // AddSession will add a new websocket.Conn to the list of active sessions
 func (p *LobbyPlayer) AddSession(ws *websocket.Conn) error {
-	for _, s := range p.Sessions {
-		if s == ws {
-			return errors.New("websocket already in sessions")
-		}
+	if _, ok := p.Sessions[ws]; ok {
+		return errors.New("websocket already in sessions")
 	}
-	p.Sessions = append(p.Sessions, ws)
+	p.Sessions[ws] = true
+	// Since this is a new session, spawn new thread to handle reading messages.
+	go p.MessageFromPlayerHandler(ws)
 	return nil
 }
 
@@ -68,11 +115,14 @@ func (p *LobbyPlayer) DisconnectSession(ws *websocket.Conn) error {
 	if len(p.Sessions) == 0 {
 		return errors.New("websocket not in user sessions")
 	}
-	for i, s := range p.Sessions {
-		if s == ws {
-			p.Sessions = append(p.Sessions[:i], p.Sessions[i+1:]...)
-			return nil
+	if _, ok := p.Sessions[ws]; ok {
+		delete(p.Sessions, ws)
+		if ws.UnderlyingConn() != nil {
+			if err := ws.Close(); err != nil {
+				return err
+			}
 		}
+		return nil
 	}
 	return errors.New("websocket not in user sessions")
 }

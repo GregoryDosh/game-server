@@ -17,9 +17,9 @@ import (
 
 // Global websocket connection parameters
 const (
-	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = pongWait * 9 / 10
+	writeWait      = 10 * time.Second
 	maxMessageSize = 1024
 )
 
@@ -177,33 +177,27 @@ func websocketHandler(w http.ResponseWriter, r *http.Request, h *hub.Hub) {
 		return
 	}
 
+	// Upgrade normal http request into a websocket session
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	s, err := h.ConnectSession(userID, ws)
+	// Add some default websocket parameters
+	ws.SetReadLimit(maxMessageSize)
+	if err := ws.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		log.Error(err)
+		return
+	}
+	ws.SetPongHandler(func(string) error {
+		return ws.SetReadDeadline(time.Now().Add(pongWait))
+	})
+
+	// Retrieve/connect websocket to player
+	_, err = h.ConnectSession(userID, ws)
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	ws.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("Number of sessions %d", s.TotalSessions())))
-
-	// go func() {
-	// 	for {
-	// 		<-time.After(125 * time.Millisecond)
-	// 		ws.WriteMessage(websocket.PingMessage, nil)
-	// 	}
-	// }()
-
-	// p := &Player{
-	// 	hub:      h,
-	// 	ws:       ws,
-	// 	toPlayer: make(chan *MessageToPlayer, 256),
-	// }
-	// h.join <- p
-
-	// go p.toPlayerHandler()
-	// go p.fromPlayerHandler()
 }

@@ -72,12 +72,14 @@ func TestHub(t *testing.T) {
 		p1 := &hi.LobbyPlayer{
 			Name:             "P1",
 			MessagesToPlayer: make(chan *hi.MessageToPlayer, 256),
+			Sessions:         make(map[*websocket.Conn]bool),
 		}
 		ws1 := &websocket.Conn{}
 		ws2 := &websocket.Conn{}
 		p2 := &hi.LobbyPlayer{
 			Name:             "P2",
 			MessagesToPlayer: make(chan *hi.MessageToPlayer, 256),
+			Sessions:         make(map[*websocket.Conn]bool),
 		}
 		Convey("AddGame", func() {
 			Convey("errors on nil game", func() {

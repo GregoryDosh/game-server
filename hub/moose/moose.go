@@ -7,11 +7,12 @@ import (
 	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
 )
 
+// Game Defaults and Statuses
 const (
-	STATUS_CREATED    = "Created"
-	STATUS_STARTED    = "Started"
-	STATUS_FINISHED   = "Finished"
-	DEFAULT_GAME_NAME = "Untitled"
+	StatusCreated   = "Created"
+	StatusStarted   = "Started"
+	StatusFinished  = "Finished"
+	DefaultGameName = "Untitled"
 )
 
 // PlayerSecretMoose holds additional information about a player
@@ -37,7 +38,7 @@ type GameSecretMoose struct {
 // Name will return the game name
 func (g *GameSecretMoose) Name() string {
 	if g.GameName == "" {
-		return DEFAULT_GAME_NAME
+		return DefaultGameName
 	}
 	return g.GameName
 }
@@ -45,7 +46,7 @@ func (g *GameSecretMoose) Name() string {
 // Status will return the game name
 func (g *GameSecretMoose) Status() string {
 	if g.GameStatus == "" {
-		return STATUS_CREATED
+		return StatusCreated
 	}
 	return g.GameStatus
 }
@@ -83,13 +84,13 @@ func (g *GameSecretMoose) StartGame() error {
 		g.Players[a], g.Players[b] = g.Players[b], g.Players[a]
 	}
 	g.FirstPresident = g.Players[0]
-	g.GameStatus = STATUS_STARTED
+	g.GameStatus = StatusStarted
 	return nil
 }
 
 // EndGame will handle all of the pieces required to end a Secret Moose game
 func (g *GameSecretMoose) EndGame() error {
-	g.GameStatus = STATUS_FINISHED
+	g.GameStatus = StatusFinished
 	if g.cancelAutostart != nil {
 		close(g.cancelAutostart)
 	}
@@ -104,7 +105,7 @@ func (g *GameSecretMoose) AddPlayer(p hi.PlayerInterface) (interface{}, error) {
 	sp := &PlayerSecretMoose{
 		LobbyPlayer: p,
 	}
-	if g.Status() != STATUS_CREATED {
+	if g.Status() != StatusCreated {
 		return nil, errors.New("cannot add player after game started")
 	}
 	g.Players = append(g.Players, sp)
@@ -113,7 +114,7 @@ func (g *GameSecretMoose) AddPlayer(p hi.PlayerInterface) (interface{}, error) {
 
 // RemovePlayer will handle all of the pieces required to remove a player from a Secret Moose game
 func (g *GameSecretMoose) RemovePlayer(p hi.PlayerInterface) error {
-	if g.Status() != STATUS_CREATED {
+	if g.Status() != StatusCreated {
 		return errors.New("cannot remove player after game started")
 	}
 	for i, ep := range g.Players {

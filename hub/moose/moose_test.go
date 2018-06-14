@@ -100,7 +100,7 @@ func TestGameSecretMoose(t *testing.T) {
 		Convey("returns a non blank name if not specified", func() {
 			g := &GameSecretMoose{}
 			n := g.Name()
-			So(n, ShouldEqual, DEFAULT_GAME_NAME)
+			So(n, ShouldEqual, DefaultGameName)
 		})
 		Convey("returns set name if specified", func() {
 			g := &GameSecretMoose{
@@ -114,7 +114,7 @@ func TestGameSecretMoose(t *testing.T) {
 		Convey("returns created if Status if not specified", func() {
 			g := &GameSecretMoose{}
 			n := g.Status()
-			So(n, ShouldEqual, STATUS_CREATED)
+			So(n, ShouldEqual, StatusCreated)
 		})
 	})
 	Convey("StartGame", t, func() {
@@ -151,21 +151,21 @@ func TestGameSecretMoose(t *testing.T) {
 			err := g.EndGame()
 			n := g.Status()
 			So(err, ShouldBeNil)
-			So(n, ShouldEqual, STATUS_FINISHED)
+			So(n, ShouldEqual, StatusFinished)
 		})
 		Convey("does not panic if cancelAutostart does not exists", func() {
 			g := &GameSecretMoose{}
 			err := g.EndGame()
 			n := g.Status()
 			So(err, ShouldBeNil)
-			So(n, ShouldEqual, STATUS_FINISHED)
+			So(n, ShouldEqual, StatusFinished)
 		})
 		Convey("changes Status to 'Finished'", func() {
 			g := &GameSecretMoose{}
 			err := g.EndGame()
 			n := g.Status()
 			So(err, ShouldBeNil)
-			So(n, ShouldEqual, STATUS_FINISHED)
+			So(n, ShouldEqual, StatusFinished)
 		})
 	})
 	Convey("AutoStart", t, func() {
@@ -202,7 +202,7 @@ func TestGameSecretMoose(t *testing.T) {
 			}()
 			select {
 			case <-didStartGame:
-				So(g.Status(), ShouldEqual, STATUS_STARTED)
+				So(g.Status(), ShouldEqual, StatusStarted)
 			case <-time.After(50 * time.Millisecond):
 				fmt.Print("did not successfully start game")
 				t.Fail()
@@ -243,7 +243,7 @@ func TestGameSecretMoose(t *testing.T) {
 	Convey("lifecycle changes throughout game", t, func() {
 		g := &GameSecretMoose{}
 		n := g.Status()
-		So(n, ShouldEqual, STATUS_CREATED)
+		So(n, ShouldEqual, StatusCreated)
 		for i := 1; i <= 5; i++ {
 			p, _ := g.AddPlayer(&hi.LobbyPlayer{})
 			switch v := p.(type) {
@@ -253,10 +253,10 @@ func TestGameSecretMoose(t *testing.T) {
 		}
 		g.StartGame()
 		n = g.Status()
-		So(n, ShouldEqual, STATUS_STARTED)
+		So(n, ShouldEqual, StatusStarted)
 		g.EndGame()
 		n = g.Status()
-		So(n, ShouldEqual, STATUS_FINISHED)
+		So(n, ShouldEqual, StatusFinished)
 	})
 	Convey("team composition", t, func() {
 		g := &GameSecretMoose{}
