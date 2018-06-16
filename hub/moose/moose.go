@@ -1,12 +1,17 @@
 package moose
 
 import (
+	"encoding/json"
 	"errors"
 	"math/rand"
 	"time"
 
 	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 // Game Defaults and Statuses
 const (
@@ -35,6 +40,77 @@ type GameSecretMoose struct {
 	FirstPresident  *PlayerSecretMoose   `json:"first_president"`
 	Moose           *PlayerSecretMoose   `json:"moose"`
 	checkAutostart  chan bool
+}
+
+// PartialGame holds the structure for marshaling output of an incomplete game.
+type PartialGame struct {
+	Name    string            `json:"name"`
+	Status  string            `json:"status"`
+	Players []json.RawMessage `json:"players"`
+	Created time.Time         `json:"created"`
+}
+
+// FinishedGame holds the structure for marshaling output of a finished game.
+type FinishedGame struct {
+	Name           string            `json:"name"`
+	Status         string            `json:"status"`
+	Players        []json.RawMessage `json:"players"`
+	Created        time.Time         `json:"created"`
+	Liberals       []json.RawMessage `json:"liberals"`
+	Fascists       []json.RawMessage `json:"fascists"`
+	FirstPresident json.RawMessage   `json:"first_president"`
+	Moose          json.RawMessage   `json:"moose"`
+}
+
+// MarshalJSON should hide information based on the status of the game
+func (g *GameSecretMoose) MarshalJSON() ([]byte, error) {
+	p := make([]json.RawMessage, 0)
+	for _, ep := range g.Players {
+		lp, err := json.Marshal(ep.LobbyPlayer)
+		if err != nil {
+			return nil, err
+		}
+		p = append(p, lp)
+	}
+	if g.Status() == StatusFinished {
+		l, f := make([]json.RawMessage, 0), make([]json.RawMessage, 0)
+		for _, ep := range g.Fascists {
+			fasp, err := json.Marshal(ep.LobbyPlayer)
+			if err != nil {
+				return nil, err
+			}
+			f = append(f, fasp)
+		}
+		for _, ep := range g.Liberals {
+			libp, err := json.Marshal(ep.LobbyPlayer)
+			if err != nil {
+				return nil, err
+			}
+			l = append(l, libp)
+		}
+		fp, err := json.Marshal(g.FirstPresident.LobbyPlayer)
+		if err != nil {
+			return nil, err
+		}
+		m, err := json.Marshal(g.Moose.LobbyPlayer)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(&FinishedGame{
+			Name:           g.GameName,
+			Status:         g.Status(),
+			Players:        p,
+			Fascists:       f,
+			Liberals:       l,
+			FirstPresident: fp,
+			Moose:          m,
+		})
+	}
+	return json.Marshal(&PartialGame{
+		Name:    g.GameName,
+		Status:  g.Status(),
+		Players: p,
+	})
 }
 
 // Name will return the game name

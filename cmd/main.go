@@ -200,14 +200,18 @@ func httpRouteHandler(host string, port int) {
 
 	g1 := &moose.GameSecretMoose{GameName: "Lunchtime Brawl"}
 	g2 := &moose.GameSecretMoose{GameName: "HH Checkn"}
-	g1.AddPlayer(&hi.LobbyPlayer{Name: "Me"})
-	g1.AddPlayer(&hi.LobbyPlayer{Name: "You"})
-	g1.AddPlayer(&hi.LobbyPlayer{Name: "Them"})
-	g1.AddPlayer(&hi.LobbyPlayer{Name: "P4"})
-	g1.AddPlayer(&hi.LobbyPlayer{Name: "P5"})
-	g1.AddPlayer(&hi.LobbyPlayer{Name: "P6"})
-	g1.AddPlayer(&hi.LobbyPlayer{Name: "P7"})
-	g1.AddPlayer(&hi.LobbyPlayer{Name: "P8"})
+	for _, p := range []*hi.LobbyPlayer{&hi.LobbyPlayer{Name: "Me"}, &hi.LobbyPlayer{Name: "You"}, &hi.LobbyPlayer{Name: "Them"}, &hi.LobbyPlayer{Name: "P4"}, &hi.LobbyPlayer{Name: "P5"}, &hi.LobbyPlayer{Name: "P6"}, &hi.LobbyPlayer{Name: "P7"}, &hi.LobbyPlayer{Name: "P8"}} {
+		if _, err := g1.AddPlayer(p); err != nil {
+			log.Error(err)
+		}
+		g1.PlayerEvent(p, &hi.MessageFromPlayer{
+			Type: "ToggleReady",
+		})
+	}
+	if err := g1.StartGame(); err != nil {
+		log.Error(err)
+	}
+	g1.EndGame()
 	if _, err := h.AddGame(g1); err != nil {
 		log.Error(err)
 	}

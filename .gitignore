@@ -14,3 +14,4 @@
 vendor
 game-server
 .gometa*
+*.prof

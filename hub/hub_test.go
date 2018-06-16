@@ -135,7 +135,7 @@ func TestHub(t *testing.T) {
 					select {
 					case msg := <-p3.MessagesToPlayer:
 						So(msg.Type, ShouldEqual, "GAME_LIST")
-						So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+						So(string(msg.Message), ShouldContainSubstring, `{"name":"Test"}`)
 					case <-time.After(25 * time.Millisecond):
 						So("Didn't get messages", ShouldBeTrue)
 					}
@@ -179,8 +179,8 @@ func TestHub(t *testing.T) {
 					select {
 					case msg := <-p2.MessagesToPlayer:
 						So(msg.Type, ShouldEqual, "GAME_LIST")
-						So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
-						So(msg.Message, ShouldNotContainSubstring, `{"name":"OtherTest"}`)
+						So(string(msg.Message), ShouldContainSubstring, `{"name":"Test"}`)
+						So(string(msg.Message), ShouldNotContainSubstring, `{"name":"OtherTest"}`)
 					case <-time.After(25 * time.Millisecond):
 						So("Didn't get messages", ShouldBeTrue)
 					}
@@ -246,14 +246,14 @@ func TestHub(t *testing.T) {
 				select {
 				case msg := <-p3.MessagesToPlayer:
 					So(msg.Type, ShouldEqual, "GAME_LIST")
-					So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+					So(string(msg.Message), ShouldContainSubstring, `{"name":"Test"}`)
 				case <-time.After(25 * time.Millisecond):
 					So("Didn't get messages", ShouldBeTrue)
 				}
 				select {
 				case msg := <-p4.MessagesToPlayer:
 					So(msg.Type, ShouldEqual, "GAME_LIST")
-					So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+					So(string(msg.Message), ShouldContainSubstring, `{"name":"Test"}`)
 				case <-time.After(25 * time.Millisecond):
 					So("Didn't get messages", ShouldBeTrue)
 				}
@@ -267,7 +267,7 @@ func TestHub(t *testing.T) {
 				select {
 				case msg := <-p3.MessagesToPlayer:
 					So(msg.Type, ShouldEqual, "GAME_LIST")
-					So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+					So(string(msg.Message), ShouldContainSubstring, `{"name":"Test"}`)
 				case <-time.After(25 * time.Millisecond):
 					So("Didn't get messages", ShouldBeTrue)
 				}

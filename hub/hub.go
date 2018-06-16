@@ -59,9 +59,9 @@ func (h *Hub) ConnectSession(u string, ws *websocket.Conn, pingPeriod time.Durat
 		return s, s.AddSession(ws)
 	}
 	s := &hi.LobbyPlayer{
-		Name:                u,
+		Name:                "",
+		UUID:                u,
 		MessagesToPlayer:    make(chan *hi.MessageToPlayer),
-		MessagesFromPlayer:  make(chan []byte, 1024),
 		AddWSChannel:        make(chan *websocket.Conn),
 		DisconnectWSChannel: make(chan *websocket.Conn),
 	}
@@ -97,7 +97,7 @@ func (h *Hub) UpdateGameList(players ...hi.PlayerInterface) error {
 		err := p.MessageToPlayer(&hi.MessageToPlayer{
 			Type:         "GAME_LIST",
 			EventChannel: hi.ChannelGlobal,
-			Message:      string(games),
+			Message:      games,
 		})
 		if err != nil {
 			return err

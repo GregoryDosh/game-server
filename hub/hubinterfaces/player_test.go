@@ -14,7 +14,6 @@ func TestLobbyPlayer(t *testing.T) {
 		p1 := &LobbyPlayer{
 			Name:                "1234",
 			MessagesToPlayer:    make(chan *MessageToPlayer),
-			MessagesFromPlayer:  make(chan []byte),
 			AddWSChannel:        make(chan *websocket.Conn),
 			DisconnectWSChannel: make(chan *websocket.Conn),
 			StopRoutines:        make(chan bool),

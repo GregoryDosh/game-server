@@ -25,8 +25,8 @@ type PlayerInterface interface {
 // LobbyPlayer is a generic player in the lobby.
 type LobbyPlayer struct {
 	Name                string                `json:"name"`
+	UUID                string                `json:"uuid"`
 	MessagesToPlayer    chan *MessageToPlayer `json:"-"`
-	MessagesFromPlayer  chan []byte           `json:"-"`
 	AddWSChannel        chan *websocket.Conn  `json:"-"`
 	DisconnectWSChannel chan *websocket.Conn  `json:"-"`
 	StopRoutines        chan bool             `json:"-"`
@@ -92,8 +92,11 @@ func (p *LobbyPlayer) SessionHandler(pingPeriod time.Duration) {
 			atomic.StoreInt32(&p.atomicTotalSessions, int32(len(p.sessions)))
 		// Handle messages to all the sessions
 		case msg := <-p.MessagesToPlayer:
-			binaryMessage, _ := json.Marshal(msg)
-			log.Printf("Sending '%s' to %d sessions", binaryMessage, p.TotalSessions())
+			binaryMessage, err := json.Marshal(msg)
+			if err != nil {
+				log.Error(err)
+			}
+			log.Debugf("Sending '%s' to %d sessions", binaryMessage, p.TotalSessions())
 			for s := range p.sessions {
 				s.WriteMessage(websocket.TextMessage, binaryMessage)
 			}
@@ -139,7 +142,6 @@ func (p *LobbyPlayer) MessageToPlayer(msgs ...*MessageToPlayer) error {
 
 // MessageFromPlayerHandler should be run as a separate goroutine and will pool messages from connection into MessageFromPlayerAggregator.
 func (p *LobbyPlayer) MessageFromPlayerHandler(ws *websocket.Conn) {
-	// log.Debugf("✅ Starting MessageFromPlayerHandler for '%s'", p.Name)
 	log.Debugf("✅ Starting MessageFromPlayerHandler for '%s': total ws '%d'", p.Name, p.TotalSessions())
 	defer log.Debugf("🛑 Stopping MessageFromPlayerHandler for '%s'", p.Name)
 	if ws.UnderlyingConn() != nil {
@@ -152,16 +154,47 @@ func (p *LobbyPlayer) MessageFromPlayerHandler(ws *websocket.Conn) {
 				p.DisconnectWSChannel <- ws
 				break
 			}
-			log.Debugf("received '%s'", message)
-			p.MessagesFromPlayer <- message
-			err = p.MessageToPlayer(&MessageToPlayer{
-				Type:         "Echo",
-				EventChannel: ChannelGlobal,
-				Message:      string(message),
-			})
-			if err != nil {
+			log.Debugf("received '%s' from '%s'", message, p.Name)
+			playerMessage := &MessageFromPlayer{}
+			if err := json.Unmarshal(message, playerMessage); err != nil {
 				log.Error(err)
+			}
+			switch playerMessage.EventChannel {
+			case ChannelPlayer:
+				err := p.playerEvents(playerMessage)
+				if err != nil {
+					log.Error(err)
+				}
+			case ChannelGlobal:
+			case ChannelGame:
+			case ChannelPrivate:
+			default:
+				errMsg, _ := json.Marshal(struct {
+					E string `json:"error"`
+					O string `json:"original_message"`
+				}{
+					"missing or unknown event_channel",
+					string(message),
+				})
+				err = p.MessageToPlayer(&MessageToPlayer{
+					EventChannel: ChannelPrivate,
+					Type:         "ERROR",
+					Message:      errMsg,
+				})
+				if err != nil {
+					log.Error(err)
+				}
 			}
 		}
 	}
+}
+
+func (p *LobbyPlayer) playerEvents(e *MessageFromPlayer) error {
+	if e.EventChannel != ChannelPlayer {
+		return errors.New("wrong channel for playerEvents")
+	}
+	if e.Type == "CHANGE_NAME" {
+		p.Name = e.Message
+	}
+	return nil
 }
