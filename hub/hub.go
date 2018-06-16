@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
 	log "github.com/Sirupsen/logrus"
@@ -50,7 +51,7 @@ func (h *Hub) RemoveGame(u string) error {
 }
 
 // ConnectSession will take a UUID and either create a PlayerInterface and place it in the lobby, or return the existing PlayerInterface from the lobby.
-func (h *Hub) ConnectSession(u string, ws *websocket.Conn) (hi.PlayerInterface, error) {
+func (h *Hub) ConnectSession(u string, ws *websocket.Conn, pingPeriod time.Duration) (hi.PlayerInterface, error) {
 	if ws == nil {
 		return nil, errors.New("missing websocket connection")
 	}
@@ -58,15 +59,15 @@ func (h *Hub) ConnectSession(u string, ws *websocket.Conn) (hi.PlayerInterface, 
 		return s, s.AddSession(ws)
 	}
 	s := &hi.LobbyPlayer{
-		Name:               "",
-		MessagesToPlayer:   make(chan *hi.MessageToPlayer),
-		MessagesFromPlayer: make(chan []byte, 1024),
-		Sessions:           make(map[*websocket.Conn]bool),
+		Name:                u,
+		MessagesToPlayer:    make(chan *hi.MessageToPlayer),
+		MessagesFromPlayer:  make(chan []byte, 1024),
+		AddWSChannel:        make(chan *websocket.Conn),
+		DisconnectWSChannel: make(chan *websocket.Conn),
 	}
 	h.lobby[u] = s
-	// Since this is a new player, spawn new thread to handle sending messages.
-	go s.MessageToPlayerHandler()
-	go s.MessageFromPlayerAggregator()
+	// Since this is a new player, spawn new thread to handle websocket connections.
+	go s.SessionHandler(pingPeriod)
 	return s, s.AddSession(ws)
 }
 

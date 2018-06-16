@@ -46,7 +46,7 @@ var sc *securecookie.SecureCookie
 func main() {
 	app := cli.NewApp()
 	app.Name = "sh"
-	app.Usage = "server up games through a websocket connections"
+	app.Usage = "serve up games through a websocket connections"
 	app.Version = "0.1"
 	app.Action = appEntry
 	app.Flags = []cli.Flag{
@@ -195,7 +195,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request, h *hub.Hub) {
 	})
 
 	// Retrieve/connect websocket to player
-	_, err = h.ConnectSession(userID, ws)
+	_, err = h.ConnectSession(userID, ws, pingPeriod)
 	if err != nil {
 		log.Error(err)
 		return

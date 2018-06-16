@@ -70,17 +70,29 @@ func TestHub(t *testing.T) {
 			autoStartChan: make(chan bool, 0),
 		}
 		p1 := &hi.LobbyPlayer{
-			Name:             "P1",
-			MessagesToPlayer: make(chan *hi.MessageToPlayer, 256),
-			Sessions:         make(map[*websocket.Conn]bool),
+			Name:                "P1",
+			MessagesToPlayer:    make(chan *hi.MessageToPlayer, 256),
+			StopRoutines:        make(chan bool),
+			AddWSChannel:        make(chan *websocket.Conn),
+			DisconnectWSChannel: make(chan *websocket.Conn),
 		}
 		ws1 := &websocket.Conn{}
 		ws2 := &websocket.Conn{}
 		p2 := &hi.LobbyPlayer{
-			Name:             "P2",
-			MessagesToPlayer: make(chan *hi.MessageToPlayer, 256),
-			Sessions:         make(map[*websocket.Conn]bool),
+			Name:                "P2",
+			MessagesToPlayer:    make(chan *hi.MessageToPlayer, 256),
+			StopRoutines:        make(chan bool),
+			AddWSChannel:        make(chan *websocket.Conn),
+			DisconnectWSChannel: make(chan *websocket.Conn),
 		}
+		go func() {
+			p1.SessionHandler(55 * time.Second)
+			p2.SessionHandler(55 * time.Second)
+		}()
+		defer func() {
+			p1.StopRoutines <- true
+			p2.StopRoutines <- true
+		}()
 		Convey("AddGame", func() {
 			Convey("errors on nil game", func() {
 				_, err := h.AddGame(nil)
@@ -156,14 +168,14 @@ func TestHub(t *testing.T) {
 		})
 		Convey("ConnectSession", func() {
 			Convey("for an empty websocket it will error", func() {
-				p, err := h.ConnectSession("1234", nil)
+				p, err := h.ConnectSession("1234", nil, 55)
 				So(p, ShouldBeNil)
 				So(err, ShouldBeError)
 				So(err.Error(), ShouldEqual, "missing websocket connection")
 			})
 			Convey("for a new/missing user should return a new PlayerInterface", func() {
 				So(len(h.lobby), ShouldEqual, 0)
-				p, err := h.ConnectSession("1234", ws1)
+				p, err := h.ConnectSession("1234", ws1, 55)
 				So(p, ShouldNotBeNil)
 				So(err, ShouldBeNil)
 				So(len(h.lobby), ShouldEqual, 1)
@@ -171,7 +183,7 @@ func TestHub(t *testing.T) {
 			Convey("for an existing user should return existing PlayerInterface", func() {
 				h.lobby["1234"] = p1
 				So(len(h.lobby), ShouldEqual, 1)
-				rp, err := h.ConnectSession("1234", ws2)
+				rp, err := h.ConnectSession("1234", ws2, 55)
 				So(err, ShouldBeNil)
 				So(rp, ShouldNotBeNil)
 				So(len(h.lobby), ShouldEqual, 1)
@@ -185,22 +197,15 @@ func TestHub(t *testing.T) {
 				So(err.Error(), ShouldEqual, "player with uuid '1234' not in lobby")
 			})
 			Convey("will error if session does not have websocket", func() {
-				_, err := h.ConnectSession("1234", &websocket.Conn{})
+				_, err := h.ConnectSession("1234", &websocket.Conn{}, 55)
 				So(err, ShouldBeNil)
 				err = h.DisconnectSession("1234", nil)
 				So(err, ShouldBeError)
 				So(err.Error(), ShouldEqual, "cannot disconnect nil websocket")
 			})
-			Convey("will error if websocket not in user sessions", func() {
-				_, err := h.ConnectSession("1234", &websocket.Conn{})
-				So(err, ShouldBeNil)
-				err = h.DisconnectSession("1234", &websocket.Conn{})
-				So(err, ShouldBeError)
-				So(err.Error(), ShouldEqual, "websocket not in user sessions")
-			})
 			Convey("will succesfully remove session", func() {
 				ws := &websocket.Conn{}
-				_, err := h.ConnectSession("1234", ws)
+				_, err := h.ConnectSession("1234", ws, 55)
 				So(err, ShouldBeNil)
 				err = h.DisconnectSession("1234", ws)
 				So(err, ShouldBeNil)
