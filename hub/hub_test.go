@@ -76,8 +76,6 @@ func TestHub(t *testing.T) {
 			AddWSChannel:        make(chan *websocket.Conn),
 			DisconnectWSChannel: make(chan *websocket.Conn),
 		}
-		ws1 := &websocket.Conn{}
-		ws2 := &websocket.Conn{}
 		p2 := &hi.LobbyPlayer{
 			Name:                "P2",
 			MessagesToPlayer:    make(chan *hi.MessageToPlayer, 256),
@@ -85,13 +83,35 @@ func TestHub(t *testing.T) {
 			AddWSChannel:        make(chan *websocket.Conn),
 			DisconnectWSChannel: make(chan *websocket.Conn),
 		}
+		p3 := &hi.LobbyPlayer{
+			Name:                "P3",
+			MessagesToPlayer:    make(chan *hi.MessageToPlayer, 256),
+			StopRoutines:        make(chan bool),
+			AddWSChannel:        make(chan *websocket.Conn),
+			DisconnectWSChannel: make(chan *websocket.Conn),
+		}
+		p4 := &hi.LobbyPlayer{
+			Name:                "P4",
+			MessagesToPlayer:    make(chan *hi.MessageToPlayer, 256),
+			StopRoutines:        make(chan bool),
+			AddWSChannel:        make(chan *websocket.Conn),
+			DisconnectWSChannel: make(chan *websocket.Conn),
+		}
+		ws1 := &websocket.Conn{}
+		ws2 := &websocket.Conn{}
 		go func() {
 			p1.SessionHandler(55 * time.Second)
 			p2.SessionHandler(55 * time.Second)
 		}()
 		defer func() {
-			p1.StopRoutines <- true
-			p2.StopRoutines <- true
+			select {
+			case p1.StopRoutines <- true:
+			case <-time.After(25 * time.Millisecond):
+			}
+			select {
+			case p2.StopRoutines <- true:
+			case <-time.After(25 * time.Millisecond):
+			}
 		}()
 		Convey("AddGame", func() {
 			Convey("errors on nil game", func() {
@@ -108,11 +128,12 @@ func TestHub(t *testing.T) {
 					So(g1, ShouldEqual, h.games[uuid])
 				})
 				Convey("sends a message to players in lobby with updated gamelist", func() {
-					h.lobby["1234"] = p1
+					h.lobby["1234"] = p3
 					_, err := h.AddGame(g1)
+					time.Sleep(25 * time.Millisecond)
 					So(err, ShouldBeNil)
 					select {
-					case msg := <-p1.MessagesToPlayer:
+					case msg := <-p3.MessagesToPlayer:
 						So(msg.Type, ShouldEqual, "GAME_LIST")
 						So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
 					case <-time.After(25 * time.Millisecond):
@@ -215,6 +236,46 @@ func TestHub(t *testing.T) {
 			err := h.UpdateGameList()
 			Convey("should not error", func() {
 				So(err, ShouldBeNil)
+			})
+			Convey("sends a message to all players in lobby", func() {
+				h.games["ABC"] = g1
+				h.lobby["1234"] = p3
+				h.lobby["4321"] = p4
+				err := h.UpdateGameList()
+				So(err, ShouldBeNil)
+				select {
+				case msg := <-p3.MessagesToPlayer:
+					So(msg.Type, ShouldEqual, "GAME_LIST")
+					So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+				case <-time.After(25 * time.Millisecond):
+					So("Didn't get messages", ShouldBeTrue)
+				}
+				select {
+				case msg := <-p4.MessagesToPlayer:
+					So(msg.Type, ShouldEqual, "GAME_LIST")
+					So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+				case <-time.After(25 * time.Millisecond):
+					So("Didn't get messages", ShouldBeTrue)
+				}
+			})
+			Convey("sends a message to only one player", func() {
+				h.games["ABC"] = g1
+				h.lobby["1234"] = p3
+				h.lobby["4321"] = p4
+				err := h.UpdateGameList(p3)
+				So(err, ShouldBeNil)
+				select {
+				case msg := <-p3.MessagesToPlayer:
+					So(msg.Type, ShouldEqual, "GAME_LIST")
+					So(msg.Message, ShouldContainSubstring, `{"name":"Test"}`)
+				case <-time.After(25 * time.Millisecond):
+					So("Didn't get messages", ShouldBeTrue)
+				}
+				select {
+				case <-p4.MessagesToPlayer:
+					So("Shouldn't have gotten message", ShouldBeTrue)
+				case <-time.After(25 * time.Millisecond):
+				}
 			})
 		})
 	})

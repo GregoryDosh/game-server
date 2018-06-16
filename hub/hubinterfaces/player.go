@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"sync/atomic"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/websocket"
 )
@@ -15,21 +17,21 @@ type PlayerInterface interface {
 	AddSession(*websocket.Conn) error
 	DisconnectSession(*websocket.Conn) error
 	SessionHandler(time.Duration)
-	TotalSessions() int
+	TotalSessions() int32
 	MessageToPlayer(...*MessageToPlayer) error
 	MessageFromPlayerHandler(*websocket.Conn)
 }
 
 // LobbyPlayer is a generic player in the lobby.
 type LobbyPlayer struct {
-	Name                string
-	MessagesToPlayer    chan *MessageToPlayer
-	MessagesFromPlayer  chan []byte
-	AddWSChannel        chan *websocket.Conn
-	DisconnectWSChannel chan *websocket.Conn
-	StopRoutines        chan bool
+	Name                string                `json:"name"`
+	MessagesToPlayer    chan *MessageToPlayer `json:"-"`
+	MessagesFromPlayer  chan []byte           `json:"-"`
+	AddWSChannel        chan *websocket.Conn  `json:"-"`
+	DisconnectWSChannel chan *websocket.Conn  `json:"-"`
+	StopRoutines        chan bool             `json:"-"`
 	sessions            map[*websocket.Conn]bool
-	lenSessions         int
+	atomicTotalSessions int32
 }
 
 // AddSession will place the websocket.Conn on the AddWSChannel channel for the SessionsHandler to manage
@@ -83,11 +85,11 @@ func (p *LobbyPlayer) SessionHandler(pingPeriod time.Duration) {
 		// Handle adding sessions atomically
 		case ws := <-p.AddWSChannel:
 			p.sessions[ws] = true
-			p.lenSessions = len(p.sessions)
+			atomic.StoreInt32(&p.atomicTotalSessions, int32(len(p.sessions)))
 		// Handle removing sessions atomically
 		case ws := <-p.DisconnectWSChannel:
 			delete(p.sessions, ws)
-			p.lenSessions = len(p.sessions)
+			atomic.StoreInt32(&p.atomicTotalSessions, int32(len(p.sessions)))
 		// Handle messages to all the sessions
 		case msg := <-p.MessagesToPlayer:
 			binaryMessage, _ := json.Marshal(msg)
@@ -113,8 +115,8 @@ func (p *LobbyPlayer) SessionHandler(pingPeriod time.Duration) {
 }
 
 // TotalSessions returns the number of sessions a user has open
-func (p *LobbyPlayer) TotalSessions() int {
-	return p.lenSessions
+func (p *LobbyPlayer) TotalSessions() int32 {
+	return atomic.LoadInt32(&p.atomicTotalSessions)
 }
 
 // MessageToPlayer will take a pointer to messages and place them on the Messages channel
@@ -137,8 +139,8 @@ func (p *LobbyPlayer) MessageToPlayer(msgs ...*MessageToPlayer) error {
 
 // MessageFromPlayerHandler should be run as a separate goroutine and will pool messages from connection into MessageFromPlayerAggregator.
 func (p *LobbyPlayer) MessageFromPlayerHandler(ws *websocket.Conn) {
-	log.Debugf("✅ Starting MessageFromPlayerHandler for '%s'", p.Name)
-	// log.Debugf("✅ Starting MessageFromPlayerHandler for '%s': total ws '%d'", p.Name, p.TotalSessions())
+	// log.Debugf("✅ Starting MessageFromPlayerHandler for '%s'", p.Name)
+	log.Debugf("✅ Starting MessageFromPlayerHandler for '%s': total ws '%d'", p.Name, p.TotalSessions())
 	defer log.Debugf("🛑 Stopping MessageFromPlayerHandler for '%s'", p.Name)
 	if ws.UnderlyingConn() != nil {
 		for {

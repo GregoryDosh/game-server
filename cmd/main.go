@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"runtime"
+	"runtime/pprof"
 	"strings"
 	"time"
 
 	hub "github.com/GregoryDosh/game-server/hub"
+	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
+	"github.com/GregoryDosh/game-server/hub/moose"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/websocket"
@@ -26,8 +31,6 @@ const (
 var (
 	origin   string
 	upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
 			if origin == "*" {
 				return true
@@ -85,6 +88,14 @@ func main() {
 			Value:  "debug",
 			EnvVar: "LOG_LEVEL",
 		},
+		cli.StringFlag{
+			Name:  "cpuprofile",
+			Value: "",
+		},
+		cli.StringFlag{
+			Name:  "memprofile",
+			Value: "",
+		},
 	}
 	if err := app.Run(os.Args); err != nil {
 		log.Error(err)
@@ -92,8 +103,13 @@ func main() {
 }
 
 func appEntry(c *cli.Context) {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+
 	host := c.String("host")
 	port := c.Int("port")
+	cpuprofile := c.String("cpuprofile")
+	memprofile := c.String("memprofile")
 	hashKey := []byte(c.String("hash-key"))
 	blockKey := []byte(c.String("block-key"))
 	switch strings.ToLower(c.String("log-level")) {
@@ -107,6 +123,17 @@ func appEntry(c *cli.Context) {
 		log.SetLevel(log.ErrorLevel)
 	case "fatal":
 		log.SetLevel(log.FatalLevel)
+	}
+
+	if cpuprofile != "" {
+		f, err := os.Create(cpuprofile)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
 	}
 
 	if len(hashKey) == 0 {
@@ -126,7 +153,23 @@ func appEntry(c *cli.Context) {
 
 	sc = securecookie.New(hashKey, blockKey)
 
-	httpRouteHandler(host, port)
+	go httpRouteHandler(host, port)
+
+	<-stop
+
+	log.Info("shutting down")
+
+	if memprofile != "" {
+		f, err := os.Create(memprofile)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+		f.Close()
+	}
 }
 
 func userCookieHandler(w http.ResponseWriter, r *http.Request, cookieName string) (string, bool) {
@@ -154,6 +197,24 @@ func userCookieHandler(w http.ResponseWriter, r *http.Request, cookieName string
 
 func httpRouteHandler(host string, port int) {
 	h := hub.New()
+
+	g1 := &moose.GameSecretMoose{GameName: "Lunchtime Brawl"}
+	g2 := &moose.GameSecretMoose{GameName: "HH Checkn"}
+	g1.AddPlayer(&hi.LobbyPlayer{Name: "Me"})
+	g1.AddPlayer(&hi.LobbyPlayer{Name: "You"})
+	g1.AddPlayer(&hi.LobbyPlayer{Name: "Them"})
+	g1.AddPlayer(&hi.LobbyPlayer{Name: "P4"})
+	g1.AddPlayer(&hi.LobbyPlayer{Name: "P5"})
+	g1.AddPlayer(&hi.LobbyPlayer{Name: "P6"})
+	g1.AddPlayer(&hi.LobbyPlayer{Name: "P7"})
+	g1.AddPlayer(&hi.LobbyPlayer{Name: "P8"})
+	if _, err := h.AddGame(g1); err != nil {
+		log.Error(err)
+	}
+	if _, err := h.AddGame(g2); err != nil {
+		log.Error(err)
+	}
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, validUser := userCookieHandler(w, r, "userID")
 		if !validUser {
@@ -195,9 +256,10 @@ func websocketHandler(w http.ResponseWriter, r *http.Request, h *hub.Hub) {
 	})
 
 	// Retrieve/connect websocket to player
-	_, err = h.ConnectSession(userID, ws, pingPeriod)
+	s, err := h.ConnectSession(userID, ws, pingPeriod)
 	if err != nil {
 		log.Error(err)
 		return
 	}
+	h.UpdateGameList(s)
 }

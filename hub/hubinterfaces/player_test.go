@@ -1,6 +1,7 @@
 package hi
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -53,7 +54,6 @@ func TestLobbyPlayer(t *testing.T) {
 				So(p1.sessions, ShouldBeNil)
 				go p1.SessionHandler(55 * time.Second)
 				defer close(p1.StopRoutines)
-				// So(p1.sessions, ShouldNotBeNil)
 			})
 			Convey("will shutdown when StopRoutines is closed", func() {
 				stopped := make(chan bool)
@@ -75,15 +75,13 @@ func TestLobbyPlayer(t *testing.T) {
 				s1 := &websocket.Conn{}
 				err := p1.AddSession(s1)
 				So(err, ShouldBeNil)
-				time.Sleep(25 * time.Millisecond)
-				So(len(p1.sessions), ShouldEqual, p1.TotalSessions())
-				So(len(p1.sessions), ShouldEqual, 1)
+				time.Sleep(250 * time.Millisecond)
+				So(atomic.LoadInt32(&p1.atomicTotalSessions), ShouldEqual, p1.TotalSessions())
 				Convey("will remove websocket from sessions from DisconnectWSChannel channel", func() {
 					err := p1.DisconnectSession(s1)
 					So(err, ShouldBeNil)
-					time.Sleep(25 * time.Millisecond)
-					So(len(p1.sessions), ShouldEqual, p1.TotalSessions())
-					So(len(p1.sessions), ShouldEqual, 0)
+					time.Sleep(250 * time.Millisecond)
+					So(atomic.LoadInt32(&p1.atomicTotalSessions), ShouldEqual, p1.TotalSessions())
 				})
 			})
 		})
@@ -121,6 +119,5 @@ func TestLobbyPlayer(t *testing.T) {
 				So(msgLen, ShouldEqual, 2)
 			})
 		})
-
 	})
 }

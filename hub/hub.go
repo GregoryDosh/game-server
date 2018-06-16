@@ -83,12 +83,17 @@ func (h *Hub) DisconnectSession(u string, ws *websocket.Conn) error {
 }
 
 // UpdateGameList will marshall the games into JSON and send it to all players in the lobby with the Type GAME_LIST.
-func (h *Hub) UpdateGameList() error {
+func (h *Hub) UpdateGameList(players ...hi.PlayerInterface) error {
 	games, err := json.Marshal(h.games)
 	if err != nil {
 		return err
 	}
-	for _, p := range h.lobby {
+	if len(players) == 0 {
+		for _, p := range h.lobby {
+			players = append(players, p)
+		}
+	}
+	for _, p := range players {
 		err := p.MessageToPlayer(&hi.MessageToPlayer{
 			Type:         "GAME_LIST",
 			EventChannel: hi.ChannelGlobal,

@@ -3,6 +3,7 @@ package moose
 import (
 	"errors"
 	"math/rand"
+	"time"
 
 	hi "github.com/GregoryDosh/game-server/hub/hubinterfaces"
 )
@@ -27,12 +28,13 @@ type PlayerSecretMoose struct {
 type GameSecretMoose struct {
 	GameName        string               `json:"name"`
 	GameStatus      string               `json:"status"`
+	GameTimeCreated time.Time            `json:"created"`
 	Players         []*PlayerSecretMoose `json:"players"`
 	Fascists        []*PlayerSecretMoose `json:"fascists"`
 	Liberals        []*PlayerSecretMoose `json:"liberals"`
 	FirstPresident  *PlayerSecretMoose   `json:"first_president"`
 	Moose           *PlayerSecretMoose   `json:"moose"`
-	cancelAutostart chan bool
+	checkAutostart  chan bool
 }
 
 // Name will return the game name
@@ -91,8 +93,8 @@ func (g *GameSecretMoose) StartGame() error {
 // EndGame will handle all of the pieces required to end a Secret Moose game
 func (g *GameSecretMoose) EndGame() error {
 	g.GameStatus = StatusFinished
-	if g.cancelAutostart != nil {
-		close(g.cancelAutostart)
+	if g.checkAutostart != nil {
+		close(g.checkAutostart)
 	}
 	return nil
 }
@@ -128,14 +130,15 @@ func (g *GameSecretMoose) RemovePlayer(p hi.PlayerInterface) error {
 
 // AutoStart will handle starting the game when all players are ready
 func (g *GameSecretMoose) AutoStart() {
-	if g.cancelAutostart == nil {
-		g.cancelAutostart = make(chan bool, 0)
+	if g.checkAutostart == nil {
+		g.checkAutostart = make(chan bool, 0)
 	}
 	for {
 		select {
-		case <-g.cancelAutostart:
-			return
-		default:
+		case _, ok := <-g.checkAutostart:
+			if !ok {
+				return
+			}
 			if err := g.StartGame(); err == nil {
 				return
 			}
@@ -160,6 +163,11 @@ func (g *GameSecretMoose) PlayerEvent(p hi.PlayerInterface, e *hi.MessageFromPla
 	switch e.Type {
 	case "ToggleReady":
 		gamePlayer.IsReady = !gamePlayer.IsReady
+		select {
+		case g.checkAutostart <- true:
+		case <-time.After(25 * time.Millisecond):
+			errors.New("checkAutostart timeout ToggleReady")
+		}
 	}
 	return nil
 }

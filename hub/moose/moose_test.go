@@ -144,16 +144,16 @@ func TestGameSecretMoose(t *testing.T) {
 		})
 	})
 	Convey("EndGame", t, func() {
-		Convey("closes cancelAutostart channel if it exists", func() {
+		Convey("closes checkAutostart channel if it exists", func() {
 			g := &GameSecretMoose{
-				cancelAutostart: make(chan bool, 0),
+				checkAutostart: make(chan bool, 0),
 			}
 			err := g.EndGame()
 			n := g.Status()
 			So(err, ShouldBeNil)
 			So(n, ShouldEqual, StatusFinished)
 		})
-		Convey("does not panic if cancelAutostart does not exists", func() {
+		Convey("does not panic if checkAutostart does not exists", func() {
 			g := &GameSecretMoose{}
 			err := g.EndGame()
 			n := g.Status()
@@ -169,16 +169,16 @@ func TestGameSecretMoose(t *testing.T) {
 		})
 	})
 	Convey("AutoStart", t, func() {
-		Convey("gracefully shuts down when receiving cancelAutostart", func() {
+		Convey("gracefully shuts down when closing checkAutostart", func() {
 			g := &GameSecretMoose{
-				cancelAutostart: make(chan bool, 0),
+				checkAutostart: make(chan bool, 0),
 			}
 			didShutdown := make(chan bool, 0)
 			go func() {
 				g.AutoStart()
 				didShutdown <- true
 			}()
-			close(g.cancelAutostart)
+			close(g.checkAutostart)
 			select {
 			case <-didShutdown:
 			case <-time.After(50 * time.Millisecond):
@@ -187,7 +187,9 @@ func TestGameSecretMoose(t *testing.T) {
 			}
 		})
 		Convey("gracefully starts game when enough players and ready", func() {
-			g := &GameSecretMoose{}
+			g := &GameSecretMoose{
+				checkAutostart: make(chan bool),
+			}
 			for i := 1; i <= 5; i++ {
 				p, _ := g.AddPlayer(&hi.LobbyPlayer{Name: fmt.Sprintf("P%d", i)})
 				switch v := p.(type) {
@@ -200,6 +202,7 @@ func TestGameSecretMoose(t *testing.T) {
 				g.AutoStart()
 				didStartGame <- true
 			}()
+			g.checkAutostart <- true
 			select {
 			case <-didStartGame:
 				So(g.Status(), ShouldEqual, StatusStarted)
