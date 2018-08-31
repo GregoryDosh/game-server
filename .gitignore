@@ -12,6 +12,6 @@
 *.out
 
 vendor
-game-server
+cmd/game-server/game-server
 .gometa*
 *.prof
