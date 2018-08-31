@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GregoryDosh/gs/pkg/gsinterfaces"
-	"github.com/GregoryDosh/gs/pkg/server"
+	"github.com/GregoryDosh/game-server/pkg/gsinterfaces"
+	"github.com/GregoryDosh/game-server/pkg/server"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/websocket"

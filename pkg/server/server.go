@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/GregoryDosh/gs/pkg/channels"
-	"github.com/GregoryDosh/gs/pkg/gsinterfaces"
-	ws "github.com/GregoryDosh/gs/pkg/websocket"
+	"github.com/GregoryDosh/game-server/pkg/channels"
+	"github.com/GregoryDosh/game-server/pkg/gsinterfaces"
+	ws "github.com/GregoryDosh/game-server/pkg/websocket"
 	log "github.com/Sirupsen/logrus"
 )
 

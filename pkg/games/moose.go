@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GregoryDosh/gs/pkg/gsinterfaces"
+	"github.com/GregoryDosh/game-server/pkg/gsinterfaces"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -15,7 +15,7 @@ type moose struct {
 	eventHandler func(playeruuid string, gameuuid string, j json.RawMessage)
 }
 
-func (m *moose) AddPlayer(playeruuid string, player gsi.UserInterface) error {
+func (m *moose) AddPlayer(playeruuid string, player gsinterfaces.User) error {
 	fmt.Printf("Game %s added player %s\n", m.id, playeruuid)
 	return nil
 }
