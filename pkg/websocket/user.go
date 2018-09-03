@@ -11,17 +11,38 @@ import (
 )
 
 type us struct {
-	name           string
 	id             string
 	eventHandler   func(playeruuid string, b []byte)
 	messagesToUser chan []byte
 	badConnections chan *websocket.Conn
 	connmtx        sync.RWMutex
 	connections    map[*websocket.Conn]bool
+	profilemtx     sync.RWMutex
+	name           string
 }
 
-func (u *us) ID() string   { return u.id }
-func (u *us) Name() string { return u.name }
+func (u *us) ID() string {
+	u.profilemtx.RLock()
+	defer u.profilemtx.RUnlock()
+	return u.id
+}
+
+func (u *us) Name() string {
+	u.profilemtx.RLock()
+	defer u.profilemtx.RUnlock()
+	return u.name
+}
+
+func (u *us) SetName(n string) error {
+	if n != "" {
+		u.profilemtx.Lock()
+		u.name = n
+		u.profilemtx.Unlock()
+	} else {
+		return errors.New("invalid username")
+	}
+	return nil
+}
 
 func (u *us) SendEvent(b []byte) {
 	if u.messagesToUser != nil {
@@ -97,9 +118,6 @@ func (u *us) messageToUserHandler() {
 			}
 			log.Debugf("📪➡️😀 successfully sent %s", msg)
 			u.connmtx.RUnlock()
-			if msg == nil {
-				return
-			}
 		case <-pingTicker.C:
 			u.connmtx.RLock()
 			for c := range u.connections {
@@ -134,7 +152,6 @@ func (u *us) messageFromUserHandler(c *websocket.Conn) {
 	for {
 		_, msg, err := c.ReadMessage()
 		if err != nil {
-			log.Errorf("Totes: %s", err)
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Error(err)
 			}
@@ -142,14 +159,6 @@ func (u *us) messageFromUserHandler(c *websocket.Conn) {
 			return
 		}
 		u.eventHandler(u.ID(), msg)
-	}
-}
-
-// These aren't part of the normal user interface.  They extend the functionality.
-// Since we're hooking into this system via websockets, it has some other considerations.
-func (u *us) simulateInternalEvent(b []byte) {
-	if u.eventHandler != nil {
-		u.eventHandler(u.id, b)
 	}
 }
 

@@ -82,7 +82,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "log-level,l",
 			Usage:  "Log `level` for output",
-			Value:  "debug",
+			Value:  "info",
 			EnvVar: "LOG_LEVEL",
 		},
 		cli.StringFlag{

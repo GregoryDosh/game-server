@@ -10,6 +10,7 @@ type User interface {
 	AddConnection(params ...interface{}) error
 	RemoveConnection(params ...interface{}) error
 	SendEvent(b []byte)
+	SetName(n string) error
 	Name() string
 	ID() string
 }
