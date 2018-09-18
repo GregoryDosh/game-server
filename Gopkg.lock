@@ -9,6 +9,14 @@
   revision = "0dad3b6953e73d351ec8ebfd8a8c6b088d320381"
 
 [[projects]]
+  digest = "1:08a0801c1ea68735a2815757ed23ca55d645313bace60748a6f45a04579cbddd"
+  name = "github.com/docker/docker"
+  packages = ["pkg/random"]
+  pruneopts = "UT"
+  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
+  version = "v1.13.1"
+
+[[projects]]
   digest = "1:e72d1ebb8d395cf9f346fd9cbc652e5ae222dd85e0ac842dc57f175abed6d195"
   name = "github.com/gorilla/securecookie"
   packages = ["."]
@@ -23,6 +31,14 @@
   pruneopts = "UT"
   revision = "3ff3320c2a1756a3691521efc290b4701575147c"
   version = "v1.3.0"
+
+[[projects]]
+  digest = "1:730bb303c6e80807a43c37b546e06de0fa32f9cde76a198e87653ce8859fd028"
+  name = "github.com/moby/moby"
+  packages = ["pkg/namesgenerator"]
+  pruneopts = "UT"
+  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
+  version = "v1.13.1"
 
 [[projects]]
   digest = "1:ff6b0586c0621a76832cf783eee58cbb9d9795d2ce8acbc199a4131db11c42a9"
@@ -64,6 +80,7 @@
     "github.com/Sirupsen/logrus",
     "github.com/gorilla/securecookie",
     "github.com/gorilla/websocket",
+    "github.com/moby/moby/pkg/namesgenerator",
     "github.com/satori/go.uuid",
     "github.com/urfave/cli",
   ]

@@ -145,16 +145,18 @@ func appEntry(c *cli.Context) {
 		blockKey = nil
 	default:
 		log.Debug("Invalid blockKey size using generated blockKey")
-		blockKey = []byte(securecookie.GenerateRandomKey(32))
+		blockKey = securecookie.GenerateRandomKey(32)
 	}
 
 	sc = securecookie.New(hashKey, blockKey)
 
-	go httpRouteHandler(host, port)
+	s := server.New()
+	go httpRouteHandler(s, host, port)
 
 	<-stop
 
 	log.Info("shutting down")
+	s.Shutdown(5)
 
 	if memprofile != "" {
 		f, err := os.Create(memprofile)
@@ -165,35 +167,37 @@ func appEntry(c *cli.Context) {
 		if err := pprof.WriteHeapProfile(f); err != nil {
 			log.Fatal("could not write memory profile: ", err)
 		}
-		f.Close()
+		if err := f.Close(); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
-func userCookieHandler(w http.ResponseWriter, r *http.Request, cookieName string) (string, bool) {
+func userCookieHandler(w http.ResponseWriter, r *http.Request) (string, bool) {
 	// If the cookie is valid, let em through and return the key-value pairs & true for being okay
-	if cookie, err := r.Cookie(cookieName); err == nil {
+	if cookie, err := r.Cookie("userid"); err == nil {
 		u := ""
-		if err = sc.Decode(cookieName, cookie.Value, &u); err == nil {
+		if err = sc.Decode("userid", cookie.Value, &u); err == nil {
 			return u, true
 		}
 	}
 	// If here, we're assuming cookie doesn't exist or isn't valid, so give them a UUID to use and return it.
 	u := uuid.Must(uuid.NewV4()).String()
-	encoded, err := sc.Encode(cookieName, u)
+	encoded, err := sc.Encode("userid", u)
 	if err != nil {
 		log.Error(err)
 		return "", false
 	}
 	cookie := &http.Cookie{
-		Name:  cookieName,
+		Name:  "userid",
 		Value: encoded,
 	}
 	http.SetCookie(w, cookie)
 	return u, false
 }
 
-func httpRouteHandler(host string, port int) {
-	s := server.New()
+func httpRouteHandler(s gsinterfaces.Server, host string, port int) {
+	// au := &AdminUser{}
 	// g1 := &moose.GameSecretMoose{GameName: "Lunchtime Brawl"}
 	// g2 := &moose.GameSecretMoose{GameName: "HH Checkn"}
 	// for _, p := range []*hi.LobbyPlayer{{Name: "Me"}, {Name: "You"}, {Name: "Them"}, {Name: "P4"}, {Name: "P5"}, {Name: "P6"}, {Name: "P7"}, {Name: "P8"}} {
@@ -216,14 +220,19 @@ func httpRouteHandler(host string, port int) {
 	// }
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		_, validUser := userCookieHandler(w, r, "userID")
+		_, validUser := userCookieHandler(w, r)
 		if !validUser {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 	})
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		websocketHandler(w, r, s)
+		u, validUser := userCookieHandler(w, r)
+		if !validUser {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		websocketHandler(w, r, u, s)
 	})
 	err := http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), nil)
 	if err != nil {
@@ -231,14 +240,7 @@ func httpRouteHandler(host string, port int) {
 	}
 }
 
-func websocketHandler(w http.ResponseWriter, r *http.Request, s gsinterfaces.Server) {
-	userID, validUser := userCookieHandler(w, r, "userID")
-
-	if !validUser {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
+func websocketHandler(w http.ResponseWriter, r *http.Request, uuid string, s gsinterfaces.Server) {
 	// Upgrade normal http request into a websocket session
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -256,7 +258,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request, s gsinterfaces.Ser
 		return ws.SetReadDeadline(time.Now().Add(pongWait))
 	})
 
-	u := s.GetUser(userID)
+	u := s.GetUser(uuid, "")
 	if err := u.AddConnection(ws); err != nil {
 		log.Error(err)
 		return

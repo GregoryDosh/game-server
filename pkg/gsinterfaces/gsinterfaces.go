@@ -1,27 +1,28 @@
 package gsinterfaces
 
 type Server interface {
-	GetUser(uuid string) User
-	EventHandler(uuid string, b []byte)
+	GetUser(uuid string, name string) User
+	Shutdown(timeout int)
+	DebugAddUser(user User)
+	DebugAddGame(game Game)
 }
 
 type User interface {
-	SetFromHandler(func(playeruuid string, b []byte))
+	SetFromHandler(func(userUUID string, b []byte))
 	AddConnection(params ...interface{}) error
 	RemoveConnection(params ...interface{}) error
-	SendEvent(b []byte)
+	SendData(b []byte)
 	SetName(n string) error
 	Name() string
 	ID() string
+	Shutdown()
 }
 
 type Game interface {
-	// SetEventHandler(func(playeruuid string, gameuuid string, j json.RawMessage))
-	// AddPlayer(string, user.Interface) error
-	// RemovePlayer(string) error
-	// Event(string, json.RawMessage)
-	// StartGameLoop()
-	// TerminateGame()
-	// ID() string
-	// String() string
+	ID() string
+	Name() string
+	StartGameLoop()
+	FromUserHandler(uuid string, payload map[string]interface{})
+	SetFromGameHandler(func(userUUID string, gameuuid string, e interface{}))
+	Shutdown()
 }
